@@ -17,6 +17,48 @@ REPO_MAP = {
 
 
 class CustomBuildFileFunctions(bazel_to_cmake_converter.BuildFileFunctions):
+    # target_compatible_with is Bazel-specific; ignore in CMake conversion.
+    def _strip_target_compatible_with(self, kwargs):
+        kwargs.pop("target_compatible_with", None)
+        return kwargs
+
+    # These functions return Bazel target_compatible_with constraints.
+    # They are no-ops for CMake conversion.
+    def cuda_target_compatible_with(self):
+        return []
+
+    def vulkan_test_target_compatible_with(self):
+        return []
+
+    def amdgpu_target_compatible_with(self):
+        return []
+
+    def arm_sme_test_target_compatible_with(self):
+        return []
+
+    # CUDA wrappers - pass through to underlying implementation
+    def iree_cuda_cc_library(self, **kwargs):
+        self.iree_runtime_cc_library(**self._strip_target_compatible_with(kwargs))
+
+    def iree_cuda_cc_test(self, **kwargs):
+        self.iree_runtime_cc_test(**self._strip_target_compatible_with(kwargs))
+
+    # AMDGPU wrappers - pass through to underlying implementation
+    def iree_amdgpu_cc_library(self, **kwargs):
+        self.iree_runtime_cc_library(**self._strip_target_compatible_with(kwargs))
+
+    def iree_amdgpu_cc_test(self, **kwargs):
+        self.iree_runtime_cc_test(**self._strip_target_compatible_with(kwargs))
+
+    def iree_amdgpu_binary(self, **kwargs):
+        super().iree_amdgpu_binary(**self._strip_target_compatible_with(kwargs))
+
+    def iree_amdgpu_c_embed_data(self, **kwargs):
+        self.iree_c_embed_data(**self._strip_target_compatible_with(kwargs))
+
+    def native_test(self, **kwargs):
+        super().native_test(**self._strip_target_compatible_with(kwargs))
+
     def iree_compiler_cc_library(self, deps=[], **kwargs):
         self.cc_library(deps=deps + ["//compiler/src:defs"], **kwargs)
 

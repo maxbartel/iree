@@ -14,6 +14,7 @@ def iree_amdgpu_binary(
         internal_hdrs = [],
         copts = [],
         linkopts = [],
+        target_compatible_with = None,
         **kwargs):
     """Builds an LLVM shared library for AMDGPU from input files via clang.
 
@@ -30,8 +31,14 @@ def iree_amdgpu_binary(
                        Bazel-only allows using `filegroup` on the Bazel side.
         copts: additional flags to pass to clang.
         linkopts: additional flags to pass to lld.
+        target_compatible_with: list of constraint_values that must be present
+                               in the target platform for this target to be built.
         **kwargs: any additional attributes to pass to the underlying rules.
     """
+
+    base_kwargs = dict(kwargs)
+    if target_compatible_with != None:
+        base_kwargs["target_compatible_with"] = target_compatible_with
 
     clang_tool = "@llvm-project//clang:clang"
     link_tool = "@llvm-project//llvm:llvm-link"
@@ -91,7 +98,7 @@ def iree_amdgpu_binary(
             tools = [clang_tool],
             message = "Compiling %s to %s..." % (src, bitcode_out),
             output_to_bindir = 1,
-            **kwargs
+            **base_kwargs
         )
 
     archive_out = "%s.a" % (name)
@@ -109,7 +116,7 @@ def iree_amdgpu_binary(
         tools = [link_tool],
         message = "Archiving bitcode libraries %s to %s..." % (bitcode_files, archive_out),
         output_to_bindir = 1,
-        **kwargs
+        **base_kwargs
     )
 
     link_out = "%s.bc" % (name)
@@ -129,7 +136,7 @@ def iree_amdgpu_binary(
         tools = [link_tool],
         message = "Linking bitcode library %s to %s..." % (name, link_out),
         output_to_bindir = 1,
-        **kwargs
+        **base_kwargs
     )
 
     base_linkopts = [
@@ -164,5 +171,5 @@ def iree_amdgpu_binary(
         tools = [lld_tool],
         message = "Generating OpenCL binary %s to %s..." % (name, out),
         output_to_bindir = 1,
-        **kwargs
+        **base_kwargs
     )

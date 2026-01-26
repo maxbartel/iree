@@ -5,8 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 load("//build_tools/bazel:enforce_glob.bzl", "enforce_glob")
-load("//build_tools/bazel:iree_check_test.bzl", "iree_check_test_suite")
+load("//build_tools/bazel:iree_check_test.bzl", "iree_check_single_backend_test_suite", "iree_check_test_suite")
 load("//build_tools/bazel:iree_lit_test.bzl", "iree_lit_test_suite")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 
 package(
     features = ["layering_check"],
@@ -44,4 +45,24 @@ iree_check_test_suite(
     srcs = ["failure.mlir"],
     compiler_flags = ["--iree-input-demote-f64-to-f32=false"],
     runner_args = ["--expect_failure"],
+)
+
+# Vulkan tests - require explicit opt-in via --//runtime/src/iree/hal/drivers/vulkan:runtime_available=True
+iree_check_single_backend_test_suite(
+    name = "check_vulkan",
+    srcs = ["success.mlir"],
+    compiler_flags = ["--iree-input-demote-f64-to-f32=false"],
+    driver = "vulkan",
+    target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
+)
+
+iree_check_single_backend_test_suite(
+    name = "check_failure_vulkan",
+    srcs = ["failure.mlir"],
+    compiler_flags = ["--iree-input-demote-f64-to-f32=false"],
+    driver = "vulkan",
+    runner_args = ["--expect_failure"],
+    target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )

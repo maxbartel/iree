@@ -15,9 +15,9 @@ package(
 
 string_list_flag(
     name = "enabled_drivers",
+    # Note: cuda and amdgpu require their respective SDKs to be installed.
+    # Enable them explicitly with --//runtime/src/iree/hal/drivers:enabled_drivers=cuda,...
     build_setting_default = [
-        "amdgpu",
-        "cuda",
         "local-sync",
         "local-task",
         "null",

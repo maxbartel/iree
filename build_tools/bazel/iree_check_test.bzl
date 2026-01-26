@@ -11,7 +11,6 @@ load("//build_tools/bazel:native_binary.bzl", "native_test")
 
 DEFAULT_TARGET_BACKENDS_AND_DRIVERS = [
     ("vmvx", "local-task"),
-    ("vulkan-spirv", "vulkan"),
     ("llvm-cpu", "local-task"),
 ]
 
@@ -62,6 +61,7 @@ def iree_check_test(
         tags = ["target=%s" % target_backend],
         deps = deps,
         visibility = ["//visibility:private"],
+        **kwargs
     )
 
     if not driver:

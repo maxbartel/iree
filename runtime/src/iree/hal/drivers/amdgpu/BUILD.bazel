@@ -4,7 +4,7 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-load("//build_tools/bazel:build_defs.oss.bzl", "iree_runtime_cc_library", "iree_runtime_cc_test")
+load("//build_tools/bazel:iree_amdgpu.bzl", "iree_amdgpu_cc_library", "iree_amdgpu_cc_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -13,7 +13,7 @@ package(
 )
 
 # TODO(benvanik): implement omitted files.
-iree_runtime_cc_library(
+iree_amdgpu_cc_library(
     name = "amdgpu",
     srcs = [
         "allocator.c",
@@ -83,7 +83,7 @@ iree_runtime_cc_library(
 
 # Provided for tests and tools that may reach in.
 # These headers are not part of the public API and should not be depended on.
-iree_runtime_cc_library(
+iree_amdgpu_cc_library(
     name = "headers",
     hdrs = [
         "allocator.h",
@@ -119,7 +119,7 @@ iree_runtime_cc_library(
     ],
 )
 
-iree_runtime_cc_test(
+iree_amdgpu_cc_test(
     name = "buffer_pool_test",
     srcs = ["buffer_pool_test.cc"],
     group = "iree-hal-drivers-amdgpu-tests",
@@ -140,7 +140,7 @@ iree_runtime_cc_test(
     ],
 )
 
-iree_runtime_cc_test(
+iree_amdgpu_cc_test(
     name = "host_service_test",
     srcs = ["host_service_test.cc"],
     group = "iree-hal-drivers-amdgpu-tests",
@@ -162,7 +162,7 @@ iree_runtime_cc_test(
     ],
 )
 
-iree_runtime_cc_test(
+iree_amdgpu_cc_test(
     name = "semaphore_pool_test",
     srcs = ["semaphore_pool_test.cc"],
     group = "iree-hal-drivers-amdgpu-tests",
@@ -183,7 +183,7 @@ iree_runtime_cc_test(
     ],
 )
 
-iree_runtime_cc_test(
+iree_amdgpu_cc_test(
     name = "system_test",
     srcs = ["system_test.cc"],
     group = "iree-hal-drivers-amdgpu-tests",

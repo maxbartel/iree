@@ -6,6 +6,7 @@
 
 load("//build_tools/bazel:build_defs.oss.bzl", "iree_cmake_extra_content", "iree_runtime_cc_binary")
 load("//build_tools/bazel:iree_bytecode_module.bzl", "iree_bytecode_module")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 load("//build_tools/bazel:native_binary.bzl", "native_test")
 
 package(
@@ -274,6 +275,7 @@ native_test(
     tags = [
         "driver=vulkan",
     ],
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )
 
 iree_cmake_extra_content(

@@ -6,12 +6,28 @@
 
 # HAL implementation using Vulkan and (likely) SPIR-V executables.
 
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//build_tools/bazel:build_defs.oss.bzl", "iree_runtime_cc_library", "iree_runtime_cc_test")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 
 package(
     default_visibility = ["//visibility:public"],
     features = ["layering_check"],
     licenses = ["notice"],  # Apache 2.0
+)
+
+# Flag to indicate Vulkan runtime is available for execution tests.
+# Set --//runtime/src/iree/hal/drivers/vulkan:runtime_available=True to run Vulkan execution tests.
+bool_flag(
+    name = "runtime_available",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "runtime_available_setting",
+    flag_values = {
+        ":runtime_available": "True",
+    },
 )
 
 iree_runtime_cc_library(
@@ -117,6 +133,7 @@ iree_runtime_cc_test(
     name = "dynamic_symbols_test",
     srcs = ["dynamic_symbols_test.cc"],
     tags = ["driver=vulkan"],
+    target_compatible_with = vulkan_test_target_compatible_with(),
     deps = [
         ":dynamic_symbols",
         "//runtime/src/iree/base",

@@ -6,7 +6,9 @@
 
 # End-to-end matrix multiplication tests.
 
+load("//build_tools/bazel:iree_cpu_features.bzl", "arm_sme_test_target_compatible_with")
 load("//build_tools/bazel:iree_e2e_generated_runner_test.bzl", "iree_generated_e2e_runner_test")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 
 package(
     features = ["layering_check"],
@@ -95,6 +97,7 @@ PREPROCESSING_PEEL = "--iree-llvmcpu-vector-pproc-strategy=peel"
     target_backends_and_drivers = [
         ("llvm-cpu", "local-task"),
     ],
+    target_compatible_with = arm_sme_test_target_compatible_with(),
     target_cpu_features_variants = ["arm_64:sme:+sve,+sme"],
     test_runner = "//tools/testing/e2e:iree-e2e-matmul-test",
     test_type = "matmul",
@@ -321,6 +324,7 @@ X86_64_AVX512_BF16 = X86_64_AVX512 + [
     target_backends_and_drivers = [
         ("vulkan-spirv", "vulkan"),
     ],
+    target_compatible_with = vulkan_test_target_compatible_with(),
     test_runner = "//tools/testing/e2e:iree-e2e-matmul-test",
     test_type = "matmul",
 ) for (lhs_rhs_type, acc_type) in (
@@ -384,6 +388,7 @@ X86_64_AVX512_BF16 = X86_64_AVX512 + [
     target_backends_and_drivers = [
         ("vulkan-spirv", "vulkan"),
     ],
+    target_compatible_with = vulkan_test_target_compatible_with(),
     test_runner = "//tools/testing/e2e:iree-e2e-matmul-test",
     test_type = "matmul",
 ) for (lhs_rhs_type, acc_type) in [
@@ -411,6 +416,7 @@ X86_64_AVX512_BF16 = X86_64_AVX512 + [
     target_backends_and_drivers = [
         ("vulkan-spirv", "vulkan"),
     ],
+    target_compatible_with = vulkan_test_target_compatible_with(),
     test_runner = "//tools/testing/e2e:iree-e2e-matmul-test",
     test_type = "matmul",
 ) for (lhs_rhs_type, acc_type) in [

@@ -46,4 +46,32 @@ iree_check_test_suite(
     "--expect_failure"
 )
 
+iree_check_single_backend_test_suite(
+  NAME
+    check_vulkan
+  SRCS
+    "success.mlir"
+  TARGET_BACKEND
+    "vulkan-spirv"
+  DRIVER
+    "vulkan"
+  COMPILER_FLAGS
+    "--iree-input-demote-f64-to-f32=false"
+)
+
+iree_check_single_backend_test_suite(
+  NAME
+    check_failure_vulkan
+  SRCS
+    "failure.mlir"
+  TARGET_BACKEND
+    "vulkan-spirv"
+  DRIVER
+    "vulkan"
+  COMPILER_FLAGS
+    "--iree-input-demote-f64-to-f32=false"
+  RUNNER_ARGS
+    "--expect_failure"
+)
+
 ### BAZEL_TO_CMAKE_PRESERVES_ALL_CONTENT_BELOW_THIS_LINE ###

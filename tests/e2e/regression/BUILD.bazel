@@ -9,7 +9,9 @@
 # Place those tests in tools/test/
 
 load("//build_tools/bazel:iree_check_test.bzl", "iree_check_single_backend_test_suite")
+load("//build_tools/bazel:iree_cuda.bzl", "cuda_target_compatible_with")
 load("//build_tools/bazel:iree_lit_test.bzl", "iree_lit_test_suite")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 
 package(
     features = ["layering_check"],
@@ -117,6 +119,7 @@ iree_check_single_backend_test_suite(
     srcs = BACKEND_TESTS,
     driver = "vulkan",
     target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )
 
 iree_check_single_backend_test_suite(
@@ -135,6 +138,7 @@ iree_check_single_backend_test_suite(
         "requires-gpu-nvidia",
     ],
     target_backend = "cuda",
+    target_compatible_with = cuda_target_compatible_with(),
 )
 
 iree_check_single_backend_test_suite(
@@ -177,6 +181,7 @@ iree_check_single_backend_test_suite(
         "requires-gpu-nvidia",
     ],
     target_backend = "cuda",
+    target_compatible_with = cuda_target_compatible_with(),
 )
 
 iree_check_single_backend_test_suite(

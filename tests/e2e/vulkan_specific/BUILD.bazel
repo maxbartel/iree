@@ -7,6 +7,7 @@
 # Tests for end-to-end IREE support specific to the vulkan-spirv lowering.
 
 load("//build_tools/bazel:iree_check_test.bzl", "iree_check_single_backend_test_suite")
+load("//build_tools/bazel:iree_vulkan.bzl", "vulkan_test_target_compatible_with")
 
 package(
     features = ["layering_check"],
@@ -31,6 +32,7 @@ iree_check_single_backend_test_suite(
         "vulkan_uses_vk_khr_shader_float16_int8",
     ],
     target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )
 
 iree_check_single_backend_test_suite(
@@ -44,6 +46,7 @@ iree_check_single_backend_test_suite(
     ],
     driver = "vulkan",
     target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )
 
 iree_check_single_backend_test_suite(
@@ -64,4 +67,5 @@ iree_check_single_backend_test_suite(
         "vulkan_uses_shader_int64",
     ],
     target_backend = "vulkan-spirv",
+    target_compatible_with = vulkan_test_target_compatible_with(),
 )
