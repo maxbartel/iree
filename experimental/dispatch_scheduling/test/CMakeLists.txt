@@ -20,6 +20,7 @@ iree_lit_test_suite(
     "bufferize_payload_boundaries_aliases.mlir"
     "bufferize_payload_boundaries_invalid.mlir"
     "bufferize_payload_dispatch_aliases.mlir"
+    "bufferize_payload_dispatch_strides.mlir"
     "lower_payload_region.mlir"
     "outline_payload_region.mlir"
     "payload_bufferization.mlir"

@@ -13,6 +13,7 @@
 #include "iree/compiler/Codegen/Dialect/VectorExt/IR/VectorExtOps.h"
 #include "iree/compiler/Codegen/Dialect/VectorExt/Transforms/BufferizationInterfaces.h"
 #include "iree/compiler/Codegen/Utils/Utils.h"
+#include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
 #include "iree/compiler/Dialect/HAL/IR/HALOps.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtOps.h"
@@ -81,6 +82,48 @@ struct DispatchTensorLoadOpInterface
         loadOp.getSource().getType());
     assert(shapedType && "unexpected source type");
     return shapedType.getAccess() != IREE::TensorExt::TensorAccess::ReadOnly;
+  }
+
+  FailureOr<bufferization::BufferLikeType>
+  getBufferType(Operation *op, Value value, const BufferizationOptions &options,
+                const BufferizationState &state,
+                SmallVector<Value> &invocationStack) const {
+    auto fallback = bufferization::detail::defaultGetBufferType(
+        value, options, state, invocationStack);
+    if (failed(fallback)) {
+      return failure();
+    }
+    auto load = cast<IREE::TensorExt::DispatchTensorLoadOp>(op);
+    auto bound = dyn_cast<RankedTensorType>(
+        cast<IREE::TensorExt::DispatchTensorType>(load.getSource().getType())
+            .getBoundType());
+    auto fallbackType = dyn_cast<MemRefType>(*fallback);
+    Value source = load.getSource();
+    // Shape metadata does not alter the binding or its storage layout.
+    // Outlining inserts these ties for dynamic dispatch arguments.
+    while (auto tie = source.getDefiningOp<IREE::Flow::DispatchTieShapeOp>()) {
+      source = tie.getOperand();
+    }
+    if (!isa<BlockArgument>(source) || !bound || bound.getEncoding() ||
+        load.getType().getEncoding() || !fallbackType) {
+      return fallback;
+    }
+
+    // An unencoded dispatch argument is row-major storage, even before HAL
+    // assigns its binding. Its base offset is still unknown. Infer the actual
+    // slice strides instead of losing, for example, a known unit inner stride
+    // and scalarizing vector transfers during early payload codegen. Never
+    // assume that a slice itself has a contiguous identity layout.
+    auto denseType = MemRefType::get(bound.getShape(), bound.getElementType());
+    auto [strides, offset] = denseType.getStridesAndOffset();
+    auto sourceType = MemRefType::get(
+        bound.getShape(), bound.getElementType(),
+        StridedLayoutAttr::get(op->getContext(), ShapedType::kDynamic, strides),
+        fallbackType.getMemorySpace());
+    return cast<bufferization::BufferLikeType>(
+        memref::SubViewOp::inferRankReducedResultType(
+            load.getType().getShape(), sourceType, load.getMixedOffsets(),
+            load.getMixedSizes(), load.getMixedStrides()));
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
