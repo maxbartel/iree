@@ -14,11 +14,20 @@ iree_lit_test_suite(
   NAME
     lit
   SRCS
+    "lower_payload_region.mlir"
+    "outline_payload_region.mlir"
     "payload_bufferization.mlir"
     "payload_bufferization_views.mlir"
     "payload_call_invalid.mlir"
     "payload_region.mlir"
     "payload_region_invalid.mlir"
+    "replace_linalg_init_with_empty.mlir"
+    "replace_linalg_init_with_empty_invalid.mlir"
+    "reuse_linalg_input_as_init.mlir"
+    "reuse_linalg_input_as_init_invalid.mlir"
+    "wrap_in_payload_group.mlir"
+    "wrap_in_payload_group_invalid.mlir"
+    "wrap_in_payload_region.mlir"
   TOOLS
     FileCheck
     iree-opt

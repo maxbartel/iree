@@ -1,0 +1,67 @@
+# Copyright 2026 The IREE Authors
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+load("//build_tools/bazel:build_defs.oss.bzl", "iree_compiler_cc_library", "iree_gentbl_cc_library", "iree_td_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["layering_check"],
+    licenses = ["notice"],
+)
+
+iree_td_library(
+    name = "td_files",
+    srcs = ["PayloadExtensionsOps.td"],
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+        "@llvm-project//mlir:SideEffectInterfacesTdFiles",
+        "@llvm-project//mlir:TransformDialectTdFiles",
+    ],
+)
+
+iree_gentbl_cc_library(
+    name = "PayloadExtensionsOpGen",
+    tbl_outs = [
+        (
+            ["--gen-op-decls"],
+            "PayloadExtensionsOps.h.inc",
+        ),
+        (
+            ["--gen-op-defs"],
+            "PayloadExtensionsOps.cpp.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "PayloadExtensionsOps.td",
+    deps = [":td_files"],
+)
+
+iree_compiler_cc_library(
+    name = "TransformExtensions",
+    srcs = ["PayloadExtensions.cpp"],
+    hdrs = ["PayloadExtensions.h"],
+    textual_hdrs = [
+        "PayloadExtensionsOps.h.inc",
+        "PayloadExtensionsOps.cpp.inc",
+    ],
+    deps = [
+        ":PayloadExtensionsOpGen",
+        "//experimental/dispatch_scheduling/IR",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:DestinationStyleOpInterface",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TransformDialect",
+        "@llvm-project//mlir:TransformDialectInterfaces",
+        "@llvm-project//mlir:TransformUtils",
+        "@llvm-project//mlir:ValueBoundsOpInterface",
+    ],
+)
