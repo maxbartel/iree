@@ -33,7 +33,8 @@ namespace {
 // functions reachable by the provided functions.
 static ExecutableOp createExecutable(Location loc, StringRef executableName,
                                      ArrayRef<mlir::func::FuncOp> funcOps,
-                                     mlir::ModuleOp parentModuleOp) {
+                                     mlir::ModuleOp parentModuleOp,
+                                     SymbolTable &parentSymbols) {
   assert(!funcOps.empty() && "must have at least one entry function");
 
   // Create the executable that will contain the outlined region.
@@ -41,6 +42,9 @@ static ExecutableOp createExecutable(Location loc, StringRef executableName,
   OpBuilder parentModuleBuilder(&parentModuleOp.getBody()->back());
   auto executableOp = IREE::Flow::ExecutableOp::create(parentModuleBuilder, loc,
                                                        executableName);
+  // An earlier outlining stage may already have used this name. Uniquify only
+  // the new executable; references to existing executables must stay intact.
+  parentSymbols.insert(executableOp);
 
   // Create the inner ModuleOp that contains the original functions. We need
   // to provide this shim as some ops (like std.call) look for the
@@ -118,7 +122,8 @@ createWorkgroupFunc(Location loc, StringRef functionName, Region &region) {
 // Outlines a dispatch region into a flow.executable and replaces the region op
 // with a dispatch to that outlined executable.
 static LogicalResult outlineDispatchWorkgroupsOp(
-    std::string name, IREE::Flow::DispatchWorkgroupsOp dispatchWorkgroupsOp) {
+    std::string name, IREE::Flow::DispatchWorkgroupsOp dispatchWorkgroupsOp,
+    SymbolTable &parentSymbols) {
   // Convert the region to a free-floating function.
   auto workgroupFuncOp =
       createWorkgroupFunc(dispatchWorkgroupsOp.getLoc(), name,
@@ -130,9 +135,9 @@ static LogicalResult outlineDispatchWorkgroupsOp(
   // Create the executable with the region cloned into it.
   auto parentFuncOp =
       dispatchWorkgroupsOp->getParentOfType<mlir::FunctionOpInterface>();
-  auto executableOp =
-      createExecutable(dispatchWorkgroupsOp.getLoc(), name, {workgroupFuncOp},
-                       parentFuncOp->getParentOfType<mlir::ModuleOp>());
+  auto executableOp = createExecutable(
+      dispatchWorkgroupsOp.getLoc(), name, {workgroupFuncOp},
+      parentFuncOp->getParentOfType<mlir::ModuleOp>(), parentSymbols);
   executableOp.getOperation()->moveBefore(parentFuncOp);
   executableOp.setPrivate();
 
@@ -159,6 +164,7 @@ struct OutlineDispatchRegionsPass
           OutlineDispatchRegionsPass> {
   void runOnOperation() override {
     // Convert each dispatch region into a flow.executable + dispatch op.
+    SymbolTable parentSymbols(getOperation());
     int initializerCount = 0;
     int funcLikeCount = 0;
     for (auto funcOp : getOperation().getOps<mlir::FunctionOpInterface>()) {
@@ -184,7 +190,7 @@ struct OutlineDispatchRegionsPass
               if (failed(outlineDispatchWorkgroupsOp(
                       (namePrefix + "_dispatch_" + llvm::Twine(deadOps.size()))
                           .str(),
-                      dispatchWorkgroupsOp))) {
+                      dispatchWorkgroupsOp, parentSymbols))) {
                 return WalkResult::interrupt();
               }
               deadOps.push_back(op);

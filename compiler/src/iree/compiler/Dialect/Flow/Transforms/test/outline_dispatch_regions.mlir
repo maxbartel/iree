@@ -1,5 +1,33 @@
 // RUN: iree-opt --allow-unregistered-dialect --split-input-file --iree-flow-outline-dispatch-regions --mlir-print-local-scope %s | FileCheck %s
 
+// Outlining may run again after a previous invocation has created an
+// executable. Its existing references must remain valid when names collide.
+// CHECK: flow.executable private @mixed_dispatch_0 {
+// CHECK: flow.executable.export public @entry
+// CHECK: flow.executable private @[[NEW:mixed_dispatch_0_[0-9]+]] {
+// CHECK: flow.executable.export public @mixed_dispatch_0
+// CHECK: util.func public @mixed()
+// CHECK: flow.dispatch @mixed_dispatch_0::@entry()
+// CHECK-NEXT: flow.dispatch @[[NEW]]::@mixed_dispatch_0()
+flow.executable private @mixed_dispatch_0 {
+  flow.executable.export public @entry workgroups() -> (index, index, index) {
+    %one = arith.constant 1 : index
+    flow.return %one, %one, %one : index, index, index
+  }
+  builtin.module {
+    func.func @entry() { return }
+  }
+}
+util.func public @mixed() {
+  flow.dispatch @mixed_dispatch_0::@entry[]() : () -> ()
+  flow.dispatch.workgroups[]() : () -> () = () {
+    flow.return
+  }
+  util.return
+}
+
+// -----
+
 //      CHECK: flow.executable private @staticShapeDispatch_dispatch_0
 // CHECK-NEXT:   flow.executable.export public @staticShapeDispatch_dispatch_0
 //      CHECK: func.func @staticShapeDispatch_dispatch_0(
