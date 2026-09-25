@@ -28,3 +28,14 @@ def LLVMCPUVerifyPayloadCodegenPass :
     computation lowering and can be repeated on a completed body.
   }];
 }
+
+def LLVMCPUPreparePayloadBoundariesPass :
+    Pass<"iree-llvmcpu-prepare-payload-boundaries", "ModuleOp"> {
+  let summary = "Resolve dispatch buffer views around fully lowered payloads";
+  let description = [{
+    Resolve tensor adapters, slices and shape metadata to views of dispatch
+    binding buffers. Require the payload computation to be fully lowered and
+    reject remaining tensor adapters. An in-place result needs no copy; results
+    in private storage still require a write to their dispatch destination.
+  }];
+}

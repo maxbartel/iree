@@ -39,6 +39,7 @@ iree_cc_library(
     MLIRDestinationStyleOpInterface
     MLIRFuncDialect
     MLIRIR
+    MLIRLLVMDialect
     MLIRLinalgDialect
     MLIRMemRefDialect
     MLIRSideEffectInterfaces

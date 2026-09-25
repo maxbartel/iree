@@ -31,6 +31,7 @@ iree_lit_test_suite(
     "payload_codegen_contract.mlir"
     "payload_region.mlir"
     "payload_region_invalid.mlir"
+    "prepare_payload_boundaries.mlir"
     "prepare_payload_codegen_invalid.mlir"
     "replace_linalg_init_with_empty.mlir"
     "replace_linalg_init_with_empty_invalid.mlir"

@@ -28,6 +28,7 @@ iree_cc_library(
     "Passes.h.inc"
   SRCS
     "Passes.cpp"
+    "PayloadBoundaryViews.cpp"
     "PayloadCodegenContract.cpp"
   DEPS
     ::PassesIncGen
@@ -35,6 +36,7 @@ iree_cc_library(
     LLVMSupport
     LLVMTargetParser
     MLIRArithToLLVM
+    MLIRBufferizationDialect
     MLIRControlFlowToLLVM
     MLIRFuncDialect
     MLIRFuncToLLVM
@@ -47,11 +49,16 @@ iree_cc_library(
     MLIRSCFDialect
     MLIRSideEffectInterfaces
     MLIRSupport
+    MLIRTensorDialect
     MLIRTransformUtils
     MLIRViewLikeInterface
+    iree::compiler::Codegen::Common
+    iree::compiler::Codegen::Dialect::Codegen::IR::IREECodegenDialect
     iree::compiler::Codegen::Utils
     iree::compiler::Codegen::Utils::CodegenOptions
     iree::compiler::Dialect::HAL::IR
+    iree::experimental::dispatch_scheduling::IR
+    iree::experimental::dispatch_scheduling::Transforms
   PUBLIC
 )
 

@@ -24,6 +24,7 @@
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -757,6 +758,7 @@ class PayloadTransformExtension
     declareGeneratedDialect<memref::MemRefDialect>();
     declareGeneratedDialect<func::FuncDialect>();
     declareGeneratedDialect<linalg::LinalgDialect>();
+    declareGeneratedDialect<LLVM::LLVMDialect>();
     declareGeneratedDialect<tensor::TensorDialect>();
     registerTransformOps<
 #define GET_OP_LIST
