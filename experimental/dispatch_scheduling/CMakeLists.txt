@@ -19,6 +19,7 @@ iree_cc_library(
     MLIRIR
     iree::compiler::PluginAPI
     iree::experimental::dispatch_scheduling::IR
+    iree::experimental::dispatch_scheduling::LLVMCPU
     iree::experimental::dispatch_scheduling::TransformExtensions
     iree::experimental::dispatch_scheduling::Transforms
   PUBLIC
