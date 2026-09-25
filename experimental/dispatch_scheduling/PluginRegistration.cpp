@@ -9,12 +9,27 @@
 #include "experimental/dispatch_scheduling/Scheduling/Passes.h"
 #include "experimental/dispatch_scheduling/TransformExtensions/PayloadExtensions.h"
 #include "experimental/dispatch_scheduling/Transforms/BufferizationInterfaces.h"
+#include "iree/compiler/Dialect/HAL/IR/HALOps.h"
 #include "iree/compiler/PluginAPI/Client.h"
+#include "mlir/Pass/PassManager.h"
 
 namespace mlir::iree_compiler::Experimental {
 namespace {
 struct DispatchSchedulingOptions {
-  void bindOptions(OptionsBinder& binder) {}
+  bool enabled = false;
+  std::string libraryFile;
+  void bindOptions(OptionsBinder& binder) {
+    static llvm::cl::OptionCategory category(
+        "Experimental Dispatch Scheduling");
+    binder.opt<bool>(
+        "iree-dispatch-scheduling", enabled, llvm::cl::cat(category),
+        llvm::cl::desc(
+            "Schedule supported computations before dispatch creation"));
+    binder.opt<std::string>(
+        "iree-dispatch-scheduling-transform-spec", libraryFile,
+        llvm::cl::cat(category),
+        llvm::cl::desc("Override the embedded dispatch Transform library"));
+  }
 };
 
 struct DispatchSchedulingSession
@@ -22,6 +37,27 @@ struct DispatchSchedulingSession
   static void registerPasses() {
     registerPayloadLLVMCPUPasses();
     registerDispatchSchedulingPasses();
+  }
+
+  void extendDispatchSchedulingPassPipeline(
+      OpPassManager& passManager) override {
+    if (!options.enabled) {
+      return;
+    }
+    SelectDispatchSchedulesPassOptions passOptions;
+    passOptions.libraryFileName = options.libraryFile;
+    passManager.addPass(createSelectDispatchSchedulesPass(passOptions));
+  }
+
+  void extendExecutableConfigurationPassPipeline(
+      OpPassManager& passManager) override {
+    // A resumed compilation may contain payloads even when selection is off.
+    // Both passes leave ordinary executable functions untouched.
+    auto& modulePipeline = passManager.nest<IREE::HAL::ExecutableOp>()
+                               .nest<IREE::HAL::ExecutableVariantOp>()
+                               .nest<ModuleOp>();
+    modulePipeline.addPass(createLLVMCPUPreparePayloadBoundariesPass());
+    modulePipeline.addPass(createLLVMCPUFinalizePayloadsPass());
   }
 
   LogicalResult onActivate() override {

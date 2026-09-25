@@ -156,6 +156,8 @@ class LLVMCPUPreparePayloadBoundariesPass
   using Base::Base;
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<memref::MemRefDialect>();
+    createBufferizeDispatchTensorLoadStorePass()->getDependentDialects(
+        registry);
     createEraseHALDescriptorTypeFromMemRefPass()->getDependentDialects(
         registry);
   }
@@ -180,6 +182,7 @@ class LLVMCPUPreparePayloadBoundariesPass
       // Normalize the CPU descriptor marker before casting to the recorded
       // views.
       OpPassManager manager(function->getName().getStringRef());
+      manager.addPass(createBufferizeDispatchTensorLoadStorePass());
       manager.addPass(createEraseHALDescriptorTypeFromMemRefPass());
       if (failed(runPipeline(manager, function))) {
         return signalPassFailure();

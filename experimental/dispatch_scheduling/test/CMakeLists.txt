@@ -24,6 +24,7 @@ iree_lit_test_suite(
     "convert_payload_calls_invalid.mlir"
     "cpu_mmt4d_broadcast_init.mlir"
     "cpu_mmt4d_schedule.mlir"
+    "dispatch_scheduling_pipeline.mlir"
     "finalize_payloads.mlir"
     "finalize_payloads_invalid.mlir"
     "get_mmt4d_workgroup_tiles.mlir"
@@ -52,6 +53,7 @@ iree_lit_test_suite(
     "wrap_in_payload_region.mlir"
   TOOLS
     FileCheck
+    iree-compile
     iree-opt
   DATA
     Inputs::failing_schedule.mlir

@@ -134,6 +134,20 @@ public:
     }
   }
 
+  void
+  extendDispatchSchedulingPassPipeline(OpPassManager &passManager) override {
+    for (auto *s : initializedSessions) {
+      s->extendDispatchSchedulingPassPipeline(passManager);
+    }
+  }
+
+  void extendExecutableConfigurationPassPipeline(
+      OpPassManager &passManager) override {
+    for (auto *s : initializedSessions) {
+      s->extendExecutableConfigurationPassPipeline(passManager);
+    }
+  }
+
   // Populates the given list of HAL target devices for all initialized
   // plugins.
   void populateHALTargetDevices(IREE::HAL::TargetDeviceList &list);

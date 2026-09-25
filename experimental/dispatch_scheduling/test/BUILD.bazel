@@ -12,7 +12,8 @@ package(
     licenses = ["notice"],
 )
 
-# Build the tools with --//compiler/plugins:enabled_plugins=dispatch_scheduling.
+# Add dispatch_scheduling to the enabled compiler plugins. End-to-end tests
+# also need hal_target_llvm_cpu and hal_target_local to compile CPU executables.
 iree_lit_test_suite(
     name = "lit",
     srcs = enforce_glob(
@@ -52,19 +53,21 @@ iree_lit_test_suite(
             "payload_region_invalid.mlir",
             "recorded_schedules.mlir",
             "cpu_mmt4d_schedule.mlir",
+            "dispatch_scheduling_pipeline.mlir",
             "cpu_mmt4d_broadcast_init.mlir",
         ],
         include = ["*.mlir"],
     ),
     cfg = "lit.cfg.py",
     data = [
-        "//compiler:lit.cfg.py",
         "Inputs/failing_schedule.mlir",
         "Inputs/schedule_choices.mlir",
         "Inputs/unlowered_schedule.mlir",
+        "//compiler:lit.cfg.py",
     ],
     tags = ["manual"],
     tools = [
+        "//tools:iree-compile",
         "//tools:iree-opt",
         "@llvm-project//llvm:FileCheck",
     ],

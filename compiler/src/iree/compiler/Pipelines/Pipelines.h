@@ -28,6 +28,7 @@ enum class IREEVMPipelinePhase {
   ABI,
   Preprocessing,
   GlobalOptimization,
+  DispatchScheduling,
   DispatchCreation,
   Flow,
   Stream,
@@ -54,6 +55,9 @@ inline static void enumerateIREEVMPipelinePhases(
            "Compiles up to the `preprocessing` specified");
   callback(IREEVMPipelinePhase::GlobalOptimization, "global-optimization",
            "Compiles up to global optimization.");
+  callback(
+      IREEVMPipelinePhase::DispatchScheduling, "dispatch-scheduling",
+      "Compiles up to optional dispatch scheduling before dispatch creation.");
   callback(IREEVMPipelinePhase::DispatchCreation, "dispatch-creation",
            "Compiles up to dispatch creation.");
   callback(IREEVMPipelinePhase::Flow, "flow",

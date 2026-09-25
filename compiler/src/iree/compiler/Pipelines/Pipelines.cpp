@@ -56,10 +56,17 @@ IREEVMPipelineHooks::operator IREE::HAL::PipelineHooks() const {
   IREE::HAL::PipelineHooks halHooks;
 
   auto beforePhase = this->beforePhase;
-  halHooks.beforePhase = [beforePhase](IREE::HAL::PipelinePhase phase,
-                                       OpPassManager &passManager) {
+  auto *pipelineExtensions = this->pipelineExtensions;
+  halHooks.beforePhase = [beforePhase,
+                          pipelineExtensions](IREE::HAL::PipelinePhase phase,
+                                              OpPassManager &passManager) {
     if (beforePhase) {
       beforePhase(getIREEVMPipelinePhase(phase), passManager);
+    }
+    if (phase == IREE::HAL::PipelinePhase::ExecutableConfigurations &&
+        pipelineExtensions) {
+      pipelineExtensions->extendExecutableConfigurationPassPipeline(
+          passManager);
     }
   };
 
@@ -311,6 +318,24 @@ void buildIREEVMTransformPassPipeline(
 
   if (compileTo <= IREEVMPipelinePhase::GlobalOptimization) {
     return; // early-exit
+  }
+
+  if (compileFrom < IREEVMPipelinePhase::DispatchScheduling) {
+    if (hooks.beforePhase) {
+      hooks.beforePhase(IREEVMPipelinePhase::DispatchScheduling, passManager);
+    }
+    if (hooks.pipelineExtensions &&
+        schedulingOptions.executionModel !=
+            SchedulingOptions::ExecutionModel::HostOnly) {
+      hooks.pipelineExtensions->extendDispatchSchedulingPassPipeline(
+          passManager);
+    }
+    if (hooks.afterPhase) {
+      hooks.afterPhase(IREEVMPipelinePhase::DispatchScheduling, passManager);
+    }
+  }
+  if (compileTo == IREEVMPipelinePhase::DispatchScheduling) {
+    return;
   }
 
   IREE::Stream::TransformOptions streamOptions;

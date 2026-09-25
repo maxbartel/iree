@@ -17,6 +17,8 @@ iree_cc_library(
     "PluginRegistration.cpp"
   DEPS
     MLIRIR
+    MLIRPass
+    iree::compiler::Dialect::HAL::IR
     iree::compiler::PluginAPI
     iree::experimental::dispatch_scheduling::IR
     iree::experimental::dispatch_scheduling::LLVMCPU

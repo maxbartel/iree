@@ -81,6 +81,19 @@ public:
 
   // Adds passes to the |buildPreprocessingPassPipeline| pipeline at the end.
   virtual void extendPreprocessingPassPipeline(OpPassManager &passManager) {}
+
+  // Adds scheduling passes after global optimization and constant-expression
+  // hoisting, before ordinary dispatch formation. The pass manager is anchored
+  // on the host module. Unselected computation must remain valid input to
+  // dispatch creation.
+  virtual void
+  extendDispatchSchedulingPassPipeline(OpPassManager &passManager) {}
+
+  // Adds passes after HAL has materialized executable interfaces and before
+  // target-specific configuration. The pass manager is anchored on the host
+  // module; extensions can nest passes on executable variants as needed.
+  virtual void
+  extendExecutableConfigurationPassPipeline(OpPassManager &passManager) {}
 };
 
 // Policy for how to activate the plugin.
