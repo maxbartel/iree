@@ -399,6 +399,23 @@ def FuseEncodingOpsIntoDispatchRegionsPass :
   ];
 }
 
+def PropagateDataTilingEncodingsPass :
+    Pass<"iree-dispatch-creation-propagate-data-tiling-encodings", "mlir::ModuleOp"> {
+  let summary = "Propagates data-tiling encodings before dispatch formation.";
+  let description = [{
+    Use the same producer and consumer encoding rewrites as HoistEncodingOps,
+    but restrict propagation to operations in the same block outside dispatches.
+    This separates encoding legality from dispatch placement. Unsupported
+    operations, multiple uses and region boundaries retain encoding boundaries.
+    No dispatch hoisting or interprocedural layout propagation is performed.
+  }];
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+    "mlir::tensor::TensorDialect",
+    "IREE::Encoding::IREEEncodingDialect",
+  ];
+}
+
 def HoistEncodingOpsPass : Pass<"iree-dispatch-creation-hoist-encoding-ops", "mlir::ModuleOp"> {
   let summary = "Hoists tensor encoding ops out of flow dispatch regions.";
   let dependentDialects = [
