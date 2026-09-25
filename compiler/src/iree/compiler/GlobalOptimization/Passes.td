@@ -91,6 +91,17 @@ def DetachElementwiseFromNamedOpsPass :
   let summary = "Detaches elementwise ops from named Linalg ops.";
 }
 
+def EarlyDataTilingPass : Pass<"iree-global-opt-early-data-tiling", "mlir::ModuleOp"> {
+  let summary = "Materializes data tiling early for a supported homogeneous CPU target.";
+  let description = [{
+    Preflight the complete module before modifying layouts. A single supported
+    LLVM CPU executable target uses contraction normalization, encoding
+    assignment and propagation, then host encoding materialization. Other
+    configurations remain untouched and use late layout assignment. Record the
+    chosen target on the module to prevent double assignment and retargeting.
+  }];
+}
+
 def EraseUnusedLinalgOperandsPass :
     Pass<"iree-global-opt-erase-unused-linalg-operands", "mlir::ModuleOp"> {
   let summary = "Erases unused linalg operand and remove dead code.";

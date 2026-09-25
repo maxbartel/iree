@@ -94,6 +94,14 @@ struct TransformOptions : PassPipelineOptions<TransformOptions> {
                      "feature built on top of this path will be deprecated."),
       llvm::cl::init(false),
   };
+  Option<bool> earlyDataTiling{
+      *this,
+      "early-data-tiling",
+      llvm::cl::desc(
+          "Enables target-aware data tiling before dispatch creation. "
+          "Takes precedence over the legacy global data-tiling path."),
+      llvm::cl::init(false),
+  };
   Option<bool> constEval{
       *this,
       "const-eval",

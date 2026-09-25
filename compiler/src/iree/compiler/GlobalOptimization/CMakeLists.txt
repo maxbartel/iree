@@ -42,6 +42,7 @@ iree_cc_library(
     "QuantizationUtils.cpp"
   DEPS
     LLVMSupport
+    LLVMTargetParser
   PUBLIC
 )
 
@@ -55,6 +56,7 @@ iree_cc_library(
   DEPS
     ::QuantizationUtils
     LLVMSupport
+    LLVMTargetParser
     MLIRArithDialect
     MLIRIR
     MLIRLinalgDialect
@@ -79,6 +81,7 @@ iree_cc_library(
     "DecomposeConcat.cpp"
     "DemoteContractionInputs.cpp"
     "DetachElementwiseFromNamedOps.cpp"
+    "EarlyDataTiling.cpp"
     "EraseUnusedLinalgOperands.cpp"
     "ExpandTensorShapes.cpp"
     "FuseDequantizationMatmul.cpp"
@@ -102,10 +105,12 @@ iree_cc_library(
     ::QuantizationUtils
     ::QuantizedContraction
     LLVMSupport
+    LLVMTargetParser
     MLIRAffineDialect
     MLIRArithDialect
     MLIRArithUtils
     MLIRControlFlowDialect
+    MLIRFuncDialect
     MLIRFunctionInterfaces
     MLIRIR
     MLIRLinalgDialect
@@ -124,8 +129,10 @@ iree_cc_library(
     MLIRTransformUtils
     MLIRTransforms
     iree::compiler::Codegen::Common
+    iree::compiler::Codegen::Dialect::CPU::IR::IREECPUDialect
     iree::compiler::Codegen::Dialect::Codegen::IR::IREECodegenDialect
     iree::compiler::Dialect::Encoding::IR
+    iree::compiler::Dialect::Encoding::Utils
     iree::compiler::Dialect::Flow::Conversion::TensorToFlow
     iree::compiler::Dialect::Flow::IR
     iree::compiler::Dialect::Flow::Transforms

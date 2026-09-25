@@ -42,6 +42,14 @@ void GlobalPipelineOptions::bindOptions(OptionsBinder &binder) {
       llvm::cl::cat(category));
 
   binder.opt<bool>(
+      "iree-opt-early-data-tiling", earlyDataTiling,
+      llvm::cl::desc(
+          "Enables target-aware data tiling before dispatch creation for "
+          "supported homogeneous CPU targets, with late data tiling for other "
+          "targets. Overrides the other data-tiling placement flags."),
+      llvm::cl::cat(category));
+
+  binder.opt<bool>(
       "iree-opt-const-expr-hoisting", constExprHoisting,
       llvm::cl::desc(
           "Hoists the results of latent constant expressions into immutable "

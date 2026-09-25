@@ -222,7 +222,9 @@ void buildGlobalOptimizationPassPipeline(
       GlobalOptimization::createConvertStridedContractionToContractionPass());
 
   // Enable data tiling after they are in a canonical form.
-  if (transformOptions.dataTiling) {
+  if (transformOptions.earlyDataTiling) {
+    mainPassManager.addPass(createEarlyDataTilingPass());
+  } else if (transformOptions.dataTiling) {
     FunctionLikeNest(mainPassManager)
         .addPass(DispatchCreation::createAnnotateDataTilingHintsPass)
         .addPass([&]() {

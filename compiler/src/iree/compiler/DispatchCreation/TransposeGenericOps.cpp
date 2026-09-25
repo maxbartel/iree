@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
+#include "iree/compiler/Dialect/Encoding/Utils/Utils.h"
 #include "iree/compiler/DispatchCreation/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -34,6 +36,14 @@ struct MakeReductionInnermostPattern final
   using Base::Base;
   LogicalResult matchAndRewrite(linalg::GenericOp genericOp,
                                 PatternRewriter &rewriter) const override {
+    // Materialized convolution layouts have the canonical loop order used by
+    // CPU configuration. Preserve it as for named packed contractions.
+    if (auto module = genericOp->getParentOfType<ModuleOp>();
+        module &&
+        module->hasAttr(IREE::Encoding::kMaterializedLayoutTargetAttrName) &&
+        IREE::Codegen::isDataTiledConvGeneric(genericOp)) {
+      return failure();
+    }
     SmallVector<unsigned> interchange;
     bool needInterchange = false;
     unsigned numParallelLoop = genericOp.getNumParallelLoops();

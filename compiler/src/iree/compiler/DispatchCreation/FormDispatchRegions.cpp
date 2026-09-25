@@ -7,10 +7,12 @@
 #include "iree/compiler/Dialect/Flow/Transforms/FormDispatchRegions.h"
 #include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
 #include "iree/compiler/Dialect/Encoding/IR/EncodingOps.h"
+#include "iree/compiler/Dialect/Encoding/Utils/Utils.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowDialect.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
 #include "iree/compiler/Dialect/Flow/Transforms/ConvertRegionToWorkgroups.h"
 #include "iree/compiler/Dialect/Flow/Transforms/RegionOpUtils.h"
+#include "iree/compiler/Dialect/HAL/IR/HALTypes.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtInterfaces.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtOps.h"
@@ -1222,6 +1224,14 @@ void FormDispatchRegionsPass::runOnOperation() {
                                          fusePadWithProducers,
                                          fuseMmt4d,
                                          fuseDataTiledConvolution};
+  if (auto module = funcOp->getParentOfType<ModuleOp>()) {
+    auto target = module->getAttrOfType<IREE::HAL::ExecutableTargetAttr>(
+        IREE::Encoding::kMaterializedLayoutTargetAttrName);
+    if (target && target.getBackend() == "llvm-cpu") {
+      options.fuseMmt4d = true;
+      options.fuseDataTiledConvolution = true;
+    }
+  }
   if (failed(createFusionGroups(rewriter, funcOp, dominanceInfo, options))) {
     funcOp->emitOpError("failed to create fusion groups");
     return signalPassFailure();
