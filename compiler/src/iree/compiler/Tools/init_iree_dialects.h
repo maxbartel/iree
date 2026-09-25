@@ -21,6 +21,7 @@
 #include "iree/compiler/Codegen/Interfaces/Interfaces.h"
 #include "iree/compiler/Dialect/Encoding/IR/EncodingDialect.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowDialect.h"
+#include "iree/compiler/Dialect/Flow/TransformExtensions/FlowExtensions.h"
 #include "iree/compiler/Dialect/HAL/IR/HALDialect.h"
 #include "iree/compiler/Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "iree/compiler/Dialect/Stream/IR/StreamDialect.h"
@@ -68,6 +69,7 @@ inline void registerIreeDialects(DialectRegistry &registry) {
   registerUKernelBufferizationInterface(registry);
 
   // Register transform dialect extensions.
+  registerTransformDialectFlowExtension(registry);
   registerTransformDialectPreprocessingExtension(registry);
   IREE::Util::registerTransformDialectExtension(registry);
 }

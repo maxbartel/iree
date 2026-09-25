@@ -19,29 +19,33 @@ def ForeachThreadToFlowDispatchWorkgroupsOp : Op<Transform_Dialect, "iree.forall
      TransformOpInterface,
      ReportTrackingListenerFailuresOpTrait]> {
   let description = [{
-    Rewrite an scf.forall to Flow::DispatchWorkgroups.
+    Rewrite a normalized scf.forall with one to three dimensions to
+    flow.dispatch.workgroups. Static and dynamic upper bounds become workload
+    operands, and the count region returns them padded to three dimensions.
+    Dynamic tensor dimensions are captured explicitly along with the tensors.
+    Shared output operands must be distinct.
+
+    By default, clone eligible producers using the classic dispatch heuristic.
+    Set `clone_tensor_compute = false` when the transform schedule owns fusion:
+    tensor computations defined outside the forall remain external, while
+    eligible scalar operations, constants, empty tensors and tensor slices may
+    still be cloned. Computations already fused into the forall are preserved.
 
     #### Return modes
 
-    This operation ignores non-scf::ForeachThread ops and drops them in the
-    return.
-
-    If any rewrite fails, the transform definitely fails.
-
-    If all the operations referred to by the `target` operand generalize
-    properly, the transform succeeds. Otherwise the transform silently fails.
-
-    The return handle points to only the subset of successfully produced
-    equivalent flow::DispatchWorkgroups operations, which can be empty.
+    Non-forall targets produce a silenceable failure. Invalid iteration domains diagnose before
+    rewriting the target. A selected rewrite failure is definite; an empty
+    target handle produces an empty result handle.
 
     This operation consumes the `target` handle and produces the `transformed`
     handle.
   }];
 
-  let arguments = (ins TransformHandleTypeInterface:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       DefaultValuedAttr<BoolAttr, "true">:$clone_tensor_compute);
   let results = (outs TransformHandleTypeInterface:$transformed);
 
-  let assemblyFormat = "$target attr-dict `:` functional-type(operands, results)";
+  let assemblyFormat = "$target prop-dict attr-dict `:` functional-type(operands, results)";
   let cppNamespace = "mlir::iree_compiler::IREE::transform_dialect";
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
@@ -74,7 +78,7 @@ def RegionToWorkgroupsOp : Op<Transform_Dialect, "iree.region_to_workgroups",
   let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs TransformHandleTypeInterface:$transformed);
 
-  let assemblyFormat = "$target attr-dict `:` functional-type(operands, results)";
+  let assemblyFormat = "$target prop-dict attr-dict `:` functional-type(operands, results)";
   let cppNamespace = "mlir::iree_compiler::IREE::transform_dialect";
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(

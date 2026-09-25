@@ -35,6 +35,7 @@ iree_cc_library(
     iree::compiler::Codegen::Interfaces::Interfaces
     iree::compiler::ConstEval
     iree::compiler::Dialect::Flow::IR
+    iree::compiler::Dialect::Flow::TransformExtensions::FlowExtensions
     iree::compiler::Dialect::Flow::Transforms
     iree::compiler::Dialect::HAL::IR::HALDialect
     iree::compiler::Dialect::HAL::Transforms

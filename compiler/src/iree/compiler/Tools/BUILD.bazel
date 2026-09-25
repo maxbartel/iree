@@ -44,6 +44,7 @@ iree_compiler_cc_library(
         "//compiler/src/iree/compiler/ConstEval",
         "//compiler/src/iree/compiler/Dialect/Encoding/IR",
         "//compiler/src/iree/compiler/Dialect/Flow/IR",
+        "//compiler/src/iree/compiler/Dialect/Flow/TransformExtensions:FlowExtensions",
         "//compiler/src/iree/compiler/Dialect/Flow/Transforms",
         "//compiler/src/iree/compiler/Dialect/HAL/IR:HALDialect",
         "//compiler/src/iree/compiler/Dialect/HAL/Transforms",
