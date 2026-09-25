@@ -239,4 +239,46 @@ def OutlinePayloadRegionOp : Op<Transform_Dialect,
   }];
 }
 
+def BufferizePayloadBoundariesOp : Op<Transform_Dialect,
+    "iree.bufferize_payload_boundaries",
+    [FunctionalStyleTransformOpTrait, TransformEachOpTrait,
+     TransformOpInterface, MemoryEffectsOpInterface]> {
+  let summary = "Bufferize payload interfaces and optionally their computation";
+  let description = [{
+    Analyze each isolated, non-symbol-table scope (for example a function or
+    flow.dispatch.workgroups), resolve tensor aliasing conflicts, and bufferize
+    its payload.region interfaces. The computation inside each payload retains
+    its tensor operations, so it can be outlined into a memref-ABI function and
+    scheduled using ordinary function passes before full bufferization.
+
+    With `bufferize_body`, bufferize the scheduled tensor computation and its
+    interface together. Use this after tensor tiling, fusion and vectorization:
+    body bufferization establishes actual destination views before the interface
+    is rewritten. The surrounding dispatch remains in tensor form. This mode
+    does not run scheduling passes or erase copies after bufferization.
+
+    Analysis includes the computation and other uses in the scope. Filtering
+    analysis down to only the payload interface would lose destination aliases
+    through the tensor computation and introduce unnecessary copies. Required
+    copies preserve old tensor values and simultaneous destination writes.
+
+    Nested payloads and symbol tables are unsupported. Scopes must not overlap.
+    The transform consumes and returns the scopes, invalidating handles into
+    their bodies. Empty handles are harmless; scopes without payloads are
+    unchanged. Failure after conflict resolution is definite.
+  }];
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       UnitAttr:$bufferize_body);
+  let results = (outs TransformHandleTypeInterface:$result);
+  let assemblyFormat = "$target prop-dict attr-dict `:` functional-type(operands, results)";
+  let cppNamespace = "mlir::iree_compiler::Experimental::transform_dialect";
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif

@@ -10,9 +10,18 @@
 
 #include "experimental/dispatch_scheduling/IR/PayloadDialect.h"
 #include "experimental/dispatch_scheduling/IR/PayloadOps.h"
+#include "experimental/dispatch_scheduling/Transforms/BufferizationInterfaces.h"
+#include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
+#include "iree/compiler/Dialect/TensorExt/IR/TensorExtOps.h"
+#include "llvm/ADT/SetVector.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/OpImplementation.h"
@@ -21,6 +30,156 @@
 #include "mlir/Transforms/RegionUtils.h"
 
 namespace mlir::iree_compiler::Experimental::transform_dialect {
+
+static void addDispatchTensorLoadAliases(
+    Operation* scope, bufferization::OneShotAnalysisState& state) {
+  llvm::DenseMap<Value, Value> firstLoadForBinding;
+  scope->walk([&](IREE::TensorExt::DispatchTensorLoadOp load) {
+    Value source = load.getSource();
+    // Shape ties preserve storage identity, including when separate loads use
+    // different metadata chains for the same binding.
+    while (auto tie = source.getDefiningOp<IREE::Flow::DispatchTieShapeOp>()) {
+      source = tie.getOperand();
+    }
+    auto [it, inserted] =
+        firstLoadForBinding.try_emplace(source, load.getResult());
+    if (!inserted) {
+      // This is a may-alias relationship, not equivalence: offsets, shapes and
+      // strides may differ. Do not depend on CSE to expose identical views.
+      state.unionAliasSets(it->second, load.getResult());
+    }
+  });
+}
+
+DiagnosedSilenceableFailure BufferizePayloadBoundariesOp::applyToOne(
+    transform::TransformRewriter& rewriter, Operation* target,
+    transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>() ||
+      target->hasTrait<OpTrait::SymbolTable>() ||
+      isa<PayloadRegionOp>(target)) {
+    return emitSilenceableError()
+           << "expected an isolated, non-symbol-table scope enclosing payloads";
+  }
+  for (Operation* scope : state.getPayloadOps(getTarget())) {
+    if (scope != target &&
+        (scope->isProperAncestor(target) || target->isProperAncestor(scope))) {
+      return emitSilenceableError() << "payload bufferization scopes overlap";
+    }
+  }
+  SmallVector<PayloadRegionOp> payloads;
+  WalkResult walk = target->walk([&](Operation* op) {
+    if (op != target && op->hasTrait<OpTrait::SymbolTable>() &&
+        !isa<PayloadRegionOp>(op)) {
+      return WalkResult::interrupt();
+    }
+    if (auto payload = dyn_cast<PayloadRegionOp>(op)) {
+      if (payload->getParentOfType<PayloadRegionOp>()) {
+        return WalkResult::interrupt();
+      }
+      payloads.push_back(payload);
+    }
+    return WalkResult::advance();
+  });
+  if (walk.wasInterrupted()) {
+    return emitSilenceableError()
+           << "nested payloads and symbol tables are unsupported";
+  }
+  if (payloads.empty()) {
+    results.push_back(target);
+    return DiagnosedSilenceableFailure::success();
+  }
+
+  bufferization::OneShotBufferizationOptions options;
+  options.opFilter.denyOperation<arith::ConstantOp>();
+  options.opFilter.denyOperation<bufferization::ToBufferOp>();
+  options.allowUnknownOps = true;
+  // Dispatch bindings are not materialized yet. Even a statically shaped
+  // tensor may be a strided slice at a nonzero binding offset. Exact existing
+  // buffers and dispatch loads still use their interface-provided types;
+  // unresolved views carry every descriptor field. The dispatch-load model
+  // preserves proven strides while retaining an unknown binding offset.
+  options.unknownTypeConverterFn =
+      [](bufferization::TensorLikeType type, Attribute memorySpace,
+         const bufferization::BufferizationOptions&)
+      -> bufferization::BufferLikeType {
+    return cast<bufferization::BufferLikeType>(
+        bufferization::getMemRefTypeWithFullyDynamicLayout(
+            cast<TensorType>(type), memorySpace));
+  };
+  options.allocationFn = [](OpBuilder& builder, Location loc, MemRefType type,
+                            ValueRange dynamicSizes,
+                            unsigned alignment) -> FailureOr<Value> {
+    return memref::AllocaOp::create(builder, loc, type, dynamicSizes,
+                                    builder.getI64IntegerAttr(alignment))
+        .getResult();
+  };
+  // Represent required data movement as a copy, not as additional computation
+  // for a later Linalg schedule. Combined body/interface bufferization proves
+  // identical destination views before deciding whether to create this op.
+  options.memCpyFn = [](OpBuilder& builder, Location loc, Value from,
+                        Value to) {
+    if (areIdenticalPayloadBufferViews(from, to)) {
+      return success();
+    }
+    memref::CopyOp::create(builder, loc, from, to);
+    return success();
+  };
+  bufferization::BufferizationState bufferizationState;
+  // Analyze through the tensor computation before changing the interface.
+  // Restricting the op filter here would hide its destination equivalences.
+  bufferization::OneShotAnalysisState analysis(target, options);
+  addDispatchTensorLoadAliases(target, analysis);
+  if (failed(bufferization::analyzeOp(target, analysis)) ||
+      failed(bufferization::insertTensorCopies(target, analysis,
+                                               bufferizationState))) {
+    return emitDefiniteFailure() << "payload alias analysis failed";
+  }
+  llvm::SmallSetVector<Operation*, 4> boundaryAllocations;
+  for (PayloadRegionOp payload : payloads) {
+    for (Value operand : payload->getOperands()) {
+      if (auto allocation =
+              operand.getDefiningOp<bufferization::AllocTensorOp>()) {
+        boundaryAllocations.insert(allocation);
+      }
+    }
+  }
+  for (PayloadRegionOp payload : payloads) {
+    if (llvm::none_of(payload.getOperandTypes(),
+                      [](Type type) { return isa<TensorType>(type); })) {
+      continue;
+    }
+    if (getBufferizeBody()) {
+      // Conflict resolution above covered the enclosing scope. Bufferize the
+      // selected body without re-analyzing an isolated subset of that graph.
+      // The upstream rewrite visits children before their parent interface.
+      if (failed(bufferization::bufferizeOp(payload, options,
+                                            bufferizationState))) {
+        return emitDefiniteFailure() << "payload body bufferization failed";
+      }
+      continue;
+    }
+    rewriter.setInsertionPoint(payload);
+    auto bufferizable =
+        cast<bufferization::BufferizableOpInterface>(payload.getOperation());
+    if (failed(bufferizable.bufferize(rewriter, options, bufferizationState))) {
+      return emitDefiniteFailure() << "payload boundary bufferization failed";
+    }
+  }
+  // Conflict resolution may require a private destination at the interface.
+  // Materialize those selected boundary allocations too: later host lowering
+  // must not encounter an alloc_tensor copy feeding an already-lowered body.
+  // The copy is semantically required and is preserved during bufferization.
+  for (Operation* allocation : boundaryAllocations) {
+    if (failed(bufferization::bufferizeOp(allocation, options,
+                                          bufferizationState))) {
+      return emitDefiniteFailure()
+             << "payload boundary allocation bufferization failed";
+    }
+  }
+  results.push_back(target);
+  return DiagnosedSilenceableFailure::success();
+}
 
 static bool haveSameTensorShape(Value lhs, Value rhs) {
   auto lhsType = dyn_cast<RankedTensorType>(lhs.getType());
@@ -554,6 +713,8 @@ class PayloadTransformExtension
   PayloadTransformExtension() {
     declareGeneratedDialect<PayloadDialect>();
     declareGeneratedDialect<arith::ArithDialect>();
+    declareGeneratedDialect<bufferization::BufferizationDialect>();
+    declareGeneratedDialect<memref::MemRefDialect>();
     declareGeneratedDialect<func::FuncDialect>();
     declareGeneratedDialect<linalg::LinalgDialect>();
     declareGeneratedDialect<tensor::TensorDialect>();

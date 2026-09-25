@@ -14,6 +14,12 @@ iree_lit_test_suite(
   NAME
     lit
   SRCS
+    "bufferize_payload_body.mlir"
+    "bufferize_payload_body_aliases.mlir"
+    "bufferize_payload_boundaries.mlir"
+    "bufferize_payload_boundaries_aliases.mlir"
+    "bufferize_payload_boundaries_invalid.mlir"
+    "bufferize_payload_dispatch_aliases.mlir"
     "lower_payload_region.mlir"
     "outline_payload_region.mlir"
     "payload_bufferization.mlir"
