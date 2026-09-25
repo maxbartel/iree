@@ -273,6 +273,24 @@ def CloneProducersIntoDispatchRegionsPass :
   ];
 }
 
+def CollapseContractionDimensionsPass :
+    InterfacePass<"iree-dispatch-creation-collapse-contraction-dimensions", "mlir::FunctionOpInterface"> {
+  let summary = "Normalize contraction dimensions before global encoding assignment.";
+  let description = [{
+    Collapse contiguous dimensions of tensor contractions outside dispatches
+    using the same indexing-map and iterator legality as dispatch dimension
+    collapsing. Preserve operand and result shapes with tensor reshapes. This
+    makes collapsible multi-M/N/K/batch contractions eligible for encoding
+    without requiring dispatch formation first.
+  }];
+  let dependentDialects = [
+    "mlir::affine::AffineDialect",
+    "mlir::arith::ArithDialect",
+    "mlir::linalg::LinalgDialect",
+    "mlir::tensor::TensorDialect",
+  ];
+}
+
 def CollapseDimensionsPass :
     InterfacePass<"iree-dispatch-creation-collapse-dimensions", "mlir::FunctionOpInterface"> {
   let summary = "Collapse dimensions of Linalg Ops on tensor ops.";
