@@ -18,6 +18,7 @@ iree_compiler_cc_library(
     deps = [
         "//compiler/src/iree/compiler/PluginAPI",
         "//experimental/dispatch_scheduling/IR",
+        "//experimental/dispatch_scheduling/Transforms",
         "@llvm-project//mlir:IR",
     ],
 )

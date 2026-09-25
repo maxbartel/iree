@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "experimental/dispatch_scheduling/IR/PayloadDialect.h"
+#include "experimental/dispatch_scheduling/Transforms/BufferizationInterfaces.h"
 #include "iree/compiler/PluginAPI/Client.h"
 
 namespace mlir::iree_compiler::Experimental {
@@ -17,6 +18,7 @@ struct DispatchSchedulingSession
     : PluginSession<DispatchSchedulingSession, DispatchSchedulingOptions> {
   void onRegisterDialects(DialectRegistry& registry) override {
     registry.insert<PayloadDialect>();
+    registerPayloadBufferizationInterfaces(registry);
   }
 };
 }  // namespace

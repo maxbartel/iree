@@ -17,6 +17,8 @@ iree_lit_test_suite(
     name = "lit",
     srcs = enforce_glob(
         [
+            "payload_bufferization.mlir",
+            "payload_bufferization_views.mlir",
             "payload_call_invalid.mlir",
             "payload_region.mlir",
             "payload_region_invalid.mlir",

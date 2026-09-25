@@ -14,6 +14,8 @@ iree_lit_test_suite(
   NAME
     lit
   SRCS
+    "payload_bufferization.mlir"
+    "payload_bufferization_views.mlir"
     "payload_call_invalid.mlir"
     "payload_region.mlir"
     "payload_region_invalid.mlir"
