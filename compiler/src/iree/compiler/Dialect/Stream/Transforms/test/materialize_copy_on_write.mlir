@@ -1,3 +1,4 @@
+// RUN: iree-opt --split-input-file --pass-pipeline='builtin.module(util.func(iree-stream-materialize-copy-on-write),iree-stream-elide-async-copies)' %s | FileCheck %s --check-prefix=BORROWED
 // RUN: iree-opt --split-input-file --pass-pipeline='builtin.module(util.func(iree-stream-materialize-copy-on-write))' %s | FileCheck %s
 
 // Tests that block arguments (including function arguments) are always cloned.
@@ -188,4 +189,108 @@ util.func public @blockArgMove(%cond: i1, %size: index) -> (!stream.resource<*>,
                  ^bb2(%fill0, %bb1_1_new : !stream.resource<*>, !stream.resource<*>)
 ^bb2(%bb2_0: !stream.resource<*>, %bb2_1: !stream.resource<*>):
   util.return %bb2_0, %bb2_1 : !stream.resource<*>, !stream.resource<*>
+}
+
+// -----
+
+// A locally single-use resource can still refer to caller-owned storage.
+// CHECK-LABEL: @borrowed_import
+// BORROWED-LABEL: @borrowed_import
+util.func public @borrowed_import(%buffer: !util.buffer) -> !stream.resource<external> {
+  %c0 = arith.constant 0 : index
+  %c32 = arith.constant 32 : index
+  %c64 = arith.constant 64 : index
+  %c128 = arith.constant 128 : index
+  %c7 = arith.constant 7 : i32
+  %import = stream.tensor.import %buffer : !util.buffer -> tensor<32xi32> in !stream.resource<external>{%c128}
+  // CHECK: %[[CLONE:.+]] = stream.async.clone
+  // CHECK: stream.async.fill %{{.*}}, %[[CLONE]]
+  // BORROWED: %[[CLONE:.+]] = stream.async.clone
+  // BORROWED: stream.async.fill %{{.*}}, %[[CLONE]]
+  %next = stream.async.fill %c7, %import[%c0 to %c32 for %c32] : i32 -> %import as !stream.resource<external>{%c128}
+  util.return %next : !stream.resource<external>
+}
+
+// -----
+
+// A locally single-use resource can still refer to caller-owned storage.
+// CHECK-LABEL: @borrowed_cast
+// BORROWED-LABEL: @borrowed_cast
+util.func public @borrowed_cast(%buffer: !util.buffer) -> !stream.resource<external> {
+  %c0 = arith.constant 0 : index
+  %c32 = arith.constant 32 : index
+  %c64 = arith.constant 64 : index
+  %c128 = arith.constant 128 : index
+  %c7 = arith.constant 7 : i32
+  %import = stream.tensor.import %buffer : !util.buffer -> tensor<32xi32> in !stream.resource<external>{%c128}
+  %view = stream.async.cast %import : !stream.resource<external>{%c128} -> !stream.resource<external>{%c128}
+  // CHECK: %[[CLONE:.+]] = stream.async.clone
+  // CHECK: stream.async.fill %{{.*}}, %[[CLONE]]
+  // BORROWED: %[[CLONE:.+]] = stream.async.clone
+  // BORROWED: stream.async.fill %{{.*}}, %[[CLONE]]
+  %next = stream.async.fill %c7, %view[%c0 to %c32 for %c32] : i32 -> %view as !stream.resource<external>{%c128}
+  util.return %next : !stream.resource<external>
+}
+
+// -----
+
+// A locally single-use resource can still refer to caller-owned storage.
+// CHECK-LABEL: @borrowed_transfer
+// BORROWED-LABEL: @borrowed_transfer
+util.func public @borrowed_transfer(%buffer: !util.buffer) -> !stream.resource<external> {
+  %c0 = arith.constant 0 : index
+  %c32 = arith.constant 32 : index
+  %c64 = arith.constant 64 : index
+  %c128 = arith.constant 128 : index
+  %c7 = arith.constant 7 : i32
+  %import = stream.tensor.import %buffer : !util.buffer -> tensor<32xi32> in !stream.resource<external>{%c128}
+  %view = stream.async.transfer %import : !stream.resource<external>{%c128} -> !stream.resource<external>{%c128}
+  // CHECK: %[[CLONE:.+]] = stream.async.clone
+  // CHECK: stream.async.fill %{{.*}}, %[[CLONE]]
+  // BORROWED: %[[CLONE:.+]] = stream.async.clone
+  // BORROWED: stream.async.fill %{{.*}}, %[[CLONE]]
+  %next = stream.async.fill %c7, %view[%c0 to %c32 for %c32] : i32 -> %view as !stream.resource<external>{%c128}
+  util.return %next : !stream.resource<external>
+}
+
+// -----
+
+// A locally single-use resource can still refer to caller-owned storage.
+// CHECK-LABEL: @consumed_cast
+// BORROWED-LABEL: @consumed_cast
+util.func public @consumed_cast(%buffer: !util.buffer) -> !stream.resource<external> {
+  %c0 = arith.constant 0 : index
+  %c32 = arith.constant 32 : index
+  %c64 = arith.constant 64 : index
+  %c128 = arith.constant 128 : index
+  %c7 = arith.constant 7 : i32
+  %import = stream.tensor.import consume %buffer : !util.buffer -> tensor<32xi32> in !stream.resource<external>{%c128}
+  %view = stream.async.cast %import : !stream.resource<external>{%c128} -> !stream.resource<external>{%c128}
+  // CHECK-NOT: stream.async.clone
+  // BORROWED-NOT: stream.async.clone
+  // CHECK: stream.async.fill
+  // BORROWED: stream.async.fill
+  %next = stream.async.fill %c7, %view[%c0 to %c32 for %c32] : i32 -> %view as !stream.resource<external>{%c128}
+  util.return %next : !stream.resource<external>
+}
+
+// -----
+
+// A locally single-use resource can still refer to caller-owned storage.
+// CHECK-LABEL: @borrowed_subview
+// BORROWED-LABEL: @borrowed_subview
+util.func public @borrowed_subview(%buffer: !util.buffer) -> !stream.resource<external> {
+  %c0 = arith.constant 0 : index
+  %c32 = arith.constant 32 : index
+  %c64 = arith.constant 64 : index
+  %c128 = arith.constant 128 : index
+  %c7 = arith.constant 7 : i32
+  %import = stream.tensor.import %buffer : !util.buffer -> tensor<32xi32> in !stream.resource<external>{%c128}
+  %view = stream.resource.subview %import[%c32] : !stream.resource<external>{%c128} -> !stream.resource<external>{%c64}
+  // CHECK: %[[CLONE:.+]] = stream.async.clone
+  // CHECK: stream.async.fill %{{.*}}, %[[CLONE]]
+  // BORROWED: %[[CLONE:.+]] = stream.async.clone
+  // BORROWED: stream.async.fill %{{.*}}, %[[CLONE]]
+  %next = stream.async.fill %c7, %view[%c0 to %c32 for %c32] : i32 -> %view as !stream.resource<external>{%c64}
+  util.return %next : !stream.resource<external>
 }

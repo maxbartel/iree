@@ -33,15 +33,49 @@ namespace {
 // Copy-on-write (🐄)
 //===----------------------------------------------------------------------===//
 
+// A single local use does not imply ownership of imported storage. Follow local
+// aliases before applying the single-user shortcut. Opaque block arguments
+// still require the later whole-program analysis; consuming imports and clones
+// establish ownership independently of their sources.
+static bool mayAliasBorrowedStorage(Value value) {
+  while (auto result = dyn_cast<OpResult>(value)) {
+    Operation *op = result.getOwner();
+    if (auto importOp = dyn_cast<IREE::Stream::TensorImportOp>(op)) {
+      return !importOp.getConsume();
+    }
+    if (auto transferOp = dyn_cast<IREE::Stream::AsyncTransferOp>(op)) {
+      auto sourceType =
+          cast<IREE::Stream::ResourceType>(transferOp.getSource().getType());
+      auto resultType = cast<IREE::Stream::ResourceType>(result.getType());
+      if (sourceType.getLifetime() == resultType.getLifetime()) {
+        value = transferOp.getSource();
+        continue;
+      }
+      return false;
+    }
+    auto tiedOp = dyn_cast<IREE::Util::TiedOpInterface>(op);
+    if (!tiedOp) {
+      return false;
+    }
+    auto operandIndex =
+        tiedOp.getTiedResultOperandIndex(result.getResultNumber());
+    if (!operandIndex) {
+      return false;
+    }
+    value = op->getOperand(*operandIndex);
+  }
+  return isa<BlockArgument>(value);
+}
+
 // Returns true if the given |operand| value does not need a copy on write.
 // This is a conservative check and will return false ("not safe to elide") in
 // many cases that otherwise don't need a copy. The
 // --iree-stream-elide-async-copies pass will do a whole-program analysis and
 // remove the copies we insert here when possible.
 static bool isSafeToElideCOW(Value operand, IREE::Stream::ResourceType type) {
-  // Can't do anything with block args without analysis - we don't know if the
-  // value they carry is the last user (move semantics).
-  if (isa<BlockArgument>(operand)) {
+  // Imported storage may have external users that are invisible in the stream
+  // SSA graph. Views do not transfer ownership of that storage.
+  if (mayAliasBorrowedStorage(operand)) {
     return false;
   }
 
