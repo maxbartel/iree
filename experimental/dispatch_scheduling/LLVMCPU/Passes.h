@@ -15,6 +15,7 @@ namespace mlir::iree_compiler::Experimental {
 #include "experimental/dispatch_scheduling/LLVMCPU/Passes.h.inc"
 
 void registerPayloadLLVMCPUPasses();
+void registerPayloadLLVMCPUInterfaces(DialectRegistry& registry);
 }  // namespace mlir::iree_compiler::Experimental
 
 #endif  // IREE_EXPERIMENTAL_DISPATCH_SCHEDULING_LLVMCPU_PASSES_H_

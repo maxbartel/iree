@@ -39,3 +39,14 @@ def LLVMCPUPreparePayloadBoundariesPass :
     in private storage still require a write to their dispatch destination.
   }];
 }
+
+def LLVMCPUFinalizePayloadsPass :
+    Pass<"iree-llvmcpu-finalize-payloads", "ModuleOp"> {
+  let summary = "Transfer owned LLVM symbols into their dispatch executable";
+  let description = [{
+    Revalidate the target, symbol closure and recorded buffer ABI of each lowered
+    payload. Reconcile symbol names with the executable, then replace the owned
+    wrapper with a marked invocation. CPU conversion lowers that invocation and
+    must inline it before adapting imports to the dispatch ABI.
+  }];
+}

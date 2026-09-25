@@ -8,6 +8,7 @@
 #include "iree/compiler/Codegen/Common/Transforms.h"
 #include "iree/compiler/Codegen/Dialect/Codegen/IR/IREECodegenAttrs.h"
 #include "iree/compiler/Codegen/Dialect/Codegen/IR/IREECodegenOps.h"
+#include "iree/compiler/Codegen/LLVMCPU/ConversionExtensions.h"
 #include "iree/compiler/Codegen/LLVMCPU/DispatchABI.h"
 #include "iree/compiler/Codegen/LLVMCPU/Passes.h"
 #include "iree/compiler/Codegen/LLVMCPU/Utils.h"
@@ -68,6 +69,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+
+MLIR_DEFINE_EXPLICIT_TYPE_ID(
+    mlir::iree_compiler::LLVMCPUConversionDialectInterface)
 
 namespace mlir::iree_compiler {
 
@@ -1219,6 +1223,11 @@ void ConvertToLLVMPass::runOnOperation() {
                            IREE::Util::UtilDialect, IREE::HAL::HALDialect,
                            math::MathDialect, tosa::TosaDialect>();
 
+  DialectInterfaceCollection<LLVMCPUConversionDialectInterface> extensions(
+      &getContext());
+  for (const auto &extension : extensions) {
+    extension.populateConversionPatterns(typeConverter, patterns, target);
+  }
   if (failed(applyPartialConversion(moduleOp, target, std::move(patterns)))) {
     signalPassFailure();
     return;
@@ -1228,6 +1237,12 @@ void ConvertToLLVMPass::runOnOperation() {
   FunctionLikeNest(passManager).addPass(createReconcileUnrealizedCastsPass);
   if (failed(runPipeline(passManager, moduleOp))) {
     return signalPassFailure();
+  }
+
+  for (const auto &extension : extensions) {
+    if (failed(extension.finalizeConversion(moduleOp))) {
+      return signalPassFailure();
+    }
   }
 
   // Rewrite any extern calls emitted to dynamic library imports.

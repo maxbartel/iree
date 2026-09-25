@@ -43,6 +43,7 @@ iree_cc_library(
   NAME
     LLVMCPU
   HDRS
+    "ConversionExtensions.h"
     "DispatchABI.h"
     "KernelDispatch.h"
     "LLVMCPUSelectUKernels.h"

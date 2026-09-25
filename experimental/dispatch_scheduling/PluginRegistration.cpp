@@ -20,8 +20,16 @@ struct DispatchSchedulingSession
     : PluginSession<DispatchSchedulingSession, DispatchSchedulingOptions> {
   static void registerPasses() { registerPayloadLLVMCPUPasses(); }
 
+  LogicalResult onActivate() override {
+    // Serialized LLVM bodies may carry only payload attributes. Keep the
+    // conversion interface available even when no payload operation is parsed.
+    context->getOrLoadDialect<PayloadDialect>();
+    return success();
+  }
+
   void onRegisterDialects(DialectRegistry& registry) override {
     registry.insert<PayloadDialect>();
+    registerPayloadLLVMCPUInterfaces(registry);
     registerPayloadBufferizationInterfaces(registry);
     registerPayloadTransformExtension(registry);
   }

@@ -61,6 +61,7 @@ class TargetConverter:
                 "@llvm-project//mlir:AllPassesAndDialects": ["MLIRAllDialects"],
                 "@llvm-project//mlir:ArithOpsIncGen": ["MLIRArithDialect"],
                 "@llvm-project//mlir:BufferizationInterfaces": [""],
+                "@llvm-project//mlir:CallOpInterfaces": ["MLIRCallInterfaces"],
                 "@llvm-project//mlir:BuiltinTypesIncGen": [""],
                 "@llvm-project//mlir:CommonFolders": [""],
                 "@llvm-project//mlir:ConversionPasses": [""],

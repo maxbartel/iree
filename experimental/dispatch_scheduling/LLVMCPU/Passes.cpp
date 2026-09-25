@@ -21,6 +21,7 @@ void registerPayloadLLVMCPUPasses() {
   registerPass([] { return createConvertControlFlowToLLVMPass(); });
   registerPass([] { return createConvertFuncToLLVMPass(); });
   registerPass([] { return createFinalizeMemRefToLLVMConversionPass(); });
+  registerLLVMCPUFinalizePayloadsPass();
   registerLLVMCPUPreparePayloadBoundariesPass();
   registerLLVMCPUPreparePayloadCodegenPass();
   registerLLVMCPUVerifyPayloadCodegenPass();

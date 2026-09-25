@@ -86,6 +86,7 @@ iree_compiler_cc_library(
         "VerifyLinalgTransformLegality.cpp",
     ],
     hdrs = [
+        "ConversionExtensions.h",
         "DispatchABI.h",
         "KernelDispatch.h",
         "LLVMCPUSelectUKernels.h",

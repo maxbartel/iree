@@ -27,9 +27,11 @@ iree_cc_library(
   TEXTUAL_HDRS
     "Passes.h.inc"
   SRCS
+    "FinalizePayloads.cpp"
     "Passes.cpp"
     "PayloadBoundaryViews.cpp"
     "PayloadCodegenContract.cpp"
+    "PayloadLLVMConversion.cpp"
   DEPS
     ::PassesIncGen
     LLVMCore
@@ -37,12 +39,14 @@ iree_cc_library(
     LLVMTargetParser
     MLIRArithToLLVM
     MLIRBufferizationDialect
+    MLIRCallInterfaces
     MLIRControlFlowToLLVM
     MLIRFuncDialect
     MLIRFuncToLLVM
     MLIRIR
     MLIRLLVMCommonConversion
     MLIRLLVMDialect
+    MLIRLLVMIRTransforms
     MLIRMemRefDialect
     MLIRMemRefToLLVM
     MLIRPass
@@ -54,6 +58,7 @@ iree_cc_library(
     MLIRViewLikeInterface
     iree::compiler::Codegen::Common
     iree::compiler::Codegen::Dialect::Codegen::IR::IREECodegenDialect
+    iree::compiler::Codegen::LLVMCPU
     iree::compiler::Codegen::Utils
     iree::compiler::Codegen::Utils::CodegenOptions
     iree::compiler::Dialect::HAL::IR
