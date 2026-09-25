@@ -6,6 +6,7 @@
 
 #include "experimental/dispatch_scheduling/IR/PayloadDialect.h"
 #include "experimental/dispatch_scheduling/LLVMCPU/Passes.h"
+#include "experimental/dispatch_scheduling/Scheduling/Passes.h"
 #include "experimental/dispatch_scheduling/TransformExtensions/PayloadExtensions.h"
 #include "experimental/dispatch_scheduling/Transforms/BufferizationInterfaces.h"
 #include "iree/compiler/PluginAPI/Client.h"
@@ -18,7 +19,10 @@ struct DispatchSchedulingOptions {
 
 struct DispatchSchedulingSession
     : PluginSession<DispatchSchedulingSession, DispatchSchedulingOptions> {
-  static void registerPasses() { registerPayloadLLVMCPUPasses(); }
+  static void registerPasses() {
+    registerPayloadLLVMCPUPasses();
+    registerDispatchSchedulingPasses();
+  }
 
   LogicalResult onActivate() override {
     // Serialized LLVM bodies may carry only payload attributes. Keep the

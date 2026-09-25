@@ -50,12 +50,14 @@ iree_lit_test_suite(
             "verify_payload_codegen_invalid.mlir",
             "payload_region.mlir",
             "payload_region_invalid.mlir",
+            "recorded_schedules.mlir",
         ],
         include = ["*.mlir"],
     ),
     cfg = "lit.cfg.py",
     data = [
         "//compiler:lit.cfg.py",
+        "Inputs/schedule_choices.mlir",
     ],
     tags = ["manual"],
     tools = [

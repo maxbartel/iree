@@ -1,0 +1,52 @@
+# Copyright 2026 The IREE Authors
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+load("//build_tools/bazel:build_defs.oss.bzl", "iree_compiler_cc_library", "iree_gentbl_cc_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["layering_check"],
+    licenses = ["notice"],
+)
+
+iree_gentbl_cc_library(
+    name = "PassesIncGen",
+    tbl_outs = [(
+        ["--gen-pass-decls"],
+        "Passes.h.inc",
+    )],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "Passes.td",
+    deps = ["@llvm-project//mlir:PassBaseTdFiles"],
+)
+
+iree_compiler_cc_library(
+    name = "Scheduling",
+    srcs = [
+        "Passes.cpp",
+        "ScheduleInterpreter.cpp",
+    ],
+    hdrs = ["Passes.h"],
+    textual_hdrs = ["Passes.h.inc"],
+    deps = [
+        ":PassesIncGen",
+        "//compiler/src/iree/compiler/Codegen/Common",
+        "//compiler/src/iree/compiler/Codegen/Dialect/Codegen/IR:IREECodegenDialect",
+        "//compiler/src/iree/compiler/Codegen/Utils",
+        "//compiler/src/iree/compiler/Dialect/Encoding/Utils",
+        "//compiler/src/iree/compiler/Dialect/Flow/IR",
+        "//compiler/src/iree/compiler/Dialect/HAL/Analysis",
+        "//compiler/src/iree/compiler/Dialect/HAL/IR",
+        "//experimental/dispatch_scheduling/IR",
+        "//experimental/dispatch_scheduling/LLVMCPU",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TransformDialect",
+        "@llvm-project//mlir:TransformDialectTransforms",
+    ],
+)

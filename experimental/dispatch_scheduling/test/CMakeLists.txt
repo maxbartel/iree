@@ -39,6 +39,7 @@ iree_lit_test_suite(
     "prepare_payload_codegen_invalid.mlir"
     "reconcile_payload_imports.mlir"
     "reconcile_payload_imports_invalid.mlir"
+    "recorded_schedules.mlir"
     "replace_linalg_init_with_empty.mlir"
     "replace_linalg_init_with_empty_invalid.mlir"
     "reuse_linalg_input_as_init.mlir"
@@ -51,6 +52,7 @@ iree_lit_test_suite(
     FileCheck
     iree-opt
   DATA
+    Inputs::schedule_choices.mlir
     iree::compiler::lit.cfg.py
   LABELS
     "manual"
