@@ -21,6 +21,7 @@ iree_compiler_cc_library(
     name = "DispatchCreation",
     srcs = [
         "AnnotateDataTilingHints.cpp",
+        "AssignDataTilingEncodings.cpp",
         "BitcastUnsupportedElementTypes.cpp",
         "BubbleUpExpandShapes.cpp",
         "CloneProducersIntoDispatchRegions.cpp",
@@ -68,6 +69,7 @@ iree_compiler_cc_library(
         "//compiler/src/iree/compiler/Dialect/Flow/Conversion/TensorToFlow",
         "//compiler/src/iree/compiler/Dialect/Flow/IR",
         "//compiler/src/iree/compiler/Dialect/Flow/Transforms",
+        "//compiler/src/iree/compiler/Dialect/HAL/Analysis",
         "//compiler/src/iree/compiler/Dialect/LinalgExt/IR",
         "//compiler/src/iree/compiler/Dialect/LinalgExt/Transforms",
         "//compiler/src/iree/compiler/Dialect/LinalgExt/Utils",

@@ -18,6 +18,7 @@ iree_cc_library(
     "Passes.h"
   SRCS
     "AnnotateDataTilingHints.cpp"
+    "AssignDataTilingEncodings.cpp"
     "BitcastUnsupportedElementTypes.cpp"
     "BubbleUpExpandShapes.cpp"
     "CloneProducersIntoDispatchRegions.cpp"
@@ -87,6 +88,7 @@ iree_cc_library(
     iree::compiler::Dialect::Flow::Conversion::TensorToFlow
     iree::compiler::Dialect::Flow::IR
     iree::compiler::Dialect::Flow::Transforms
+    iree::compiler::Dialect::HAL::Analysis
     iree::compiler::Dialect::LinalgExt::IR
     iree::compiler::Dialect::LinalgExt::Transforms
     iree::compiler::Dialect::LinalgExt::Utils

@@ -15,6 +15,8 @@ iree_lit_test_suite(
     lit
   SRCS
     "annotate_data_tiling_hints.mlir"
+    "assign_data_tiling_encodings.mlir"
+    "assign_data_tiling_encodings_invalid.mlir"
     "bitcast_unsupported_element_types.mlir"
     "bubble_up_expand_shapes.mlir"
     "bubble_up_extract_slice.mlir"

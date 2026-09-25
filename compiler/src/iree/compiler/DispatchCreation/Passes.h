@@ -126,6 +126,9 @@ struct TransformOptions : PassPipelineOptions<TransformOptions> {
 void buildDispatchCreationPassPipeline(
     OpPassManager &passManager, const TransformOptions &transformOptions);
 
+/// Assign encodings using the configured operation families and strategy.
+void buildDataTilingEncodingPassPipeline(OpPassManager &passManager);
+
 //===----------------------------------------------------------------------===//
 // Register all Passes
 //===----------------------------------------------------------------------===//

@@ -119,6 +119,27 @@ static void addCleanupPatterns(OpPassManager &passManager) {
 // Pipelines
 //===----------------------------------------------------------------------===//
 
+void buildDataTilingEncodingPassPipeline(OpPassManager &passManager) {
+  FunctionLikeNest(passManager)
+      .addPass([]() {
+        IREE::Flow::CanonicalizePassOptions options;
+        options.cseConstants = false;
+        return IREE::Flow::createCanonicalizePass(options);
+      })
+      .addPass([]() {
+        AnnotateDataTilingHintsPassOptions options;
+        if (!clDataTilingOps.empty()) {
+          options.opTypes.assign(clDataTilingOps.begin(),
+                                 clDataTilingOps.end());
+        }
+        return createAnnotateDataTilingHintsPass(options);
+      })
+      .addPass([]() {
+        return createSetEncodingPass(
+            SetEncodingPassOptions{clSetEncodingStrategy});
+      });
+}
+
 static void addDispatchRegionCreationPreprocessingPasses(
     OpPassManager &passManager, const TransformOptions &dispatchOptions) {
   // Lower the affine quantization ops to elementwise generics before fusion
@@ -293,28 +314,7 @@ static void addDispatchRegionCreationPasses(OpPassManager &passManager,
   // after fusion decisions have already been made, so encodings can be
   // separated from compiler fusion decisions.
   if (options.dataTiling) {
-    FunctionLikeNest(passManager)
-        // Run canonicalizer first to make propagation easier.
-        .addPass([&]() {
-          IREE::Flow::CanonicalizePassOptions options;
-          options.cseConstants = false;
-          return IREE::Flow::createCanonicalizePass(options);
-        })
-        .addPass([&]() {
-          AnnotateDataTilingHintsPassOptions passOpts;
-          if (!clDataTilingOps.empty()) {
-            passOpts.opTypes.assign(clDataTilingOps.begin(),
-                                    clDataTilingOps.end());
-          }
-          return createAnnotateDataTilingHintsPass(passOpts);
-        })
-        // Set encodings on all eligible ops. All ops should be in compiler
-        // formed dispatch regions, so encodings will be placed inside of the
-        // dispatch regions with the data-tiled op.
-        .addPass([&]() {
-          return DispatchCreation::createSetEncodingPass(
-              DispatchCreation::SetEncodingPassOptions{clSetEncodingStrategy});
-        });
+    passManager.addPass(createAssignDataTilingEncodingsPass());
     // SetEncodingOps should not be in the same dispatch as the data-tiled
     // op, so hoist them out of their current dispatch regions. Also, bubble
     // SetEncodingOps through special operations like bit-extending ops and

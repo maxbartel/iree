@@ -273,6 +273,11 @@ def CloneProducersIntoDispatchRegionsPass :
   ];
 }
 
+def AssignDataTilingEncodingsPass :
+    Pass<"iree-dispatch-creation-assign-data-tiling-encodings", "mlir::ModuleOp"> {
+  let summary = "Assign encodings unless target-specific layouts have already been materialized.";
+}
+
 def CollapseContractionDimensionsPass :
     InterfacePass<"iree-dispatch-creation-collapse-contraction-dimensions", "mlir::FunctionOpInterface"> {
   let summary = "Normalize contraction dimensions before global encoding assignment.";

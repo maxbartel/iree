@@ -18,6 +18,12 @@ namespace mlir::iree_compiler::IREE::Encoding {
 
 constexpr char kDataTilingHint[] = "iree.opt.data_tiling";
 
+/// Executable target used to materialize module-wide tensor layouts. Preserved
+/// across serialization so dispatch formation does not assign layouts again.
+/// A module carrying this attribute cannot be retargeted.
+constexpr char kMaterializedLayoutTargetAttrName[] =
+    "iree_encoding.materialized_layout_target";
+
 /// Returns true if the operation has data-tiling hint attribute.
 inline bool hasDataTilingHint(Operation *op) {
   return op->getAttr(kDataTilingHint) ? true : false;
