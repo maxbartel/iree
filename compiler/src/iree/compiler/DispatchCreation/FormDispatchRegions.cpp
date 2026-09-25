@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "iree/compiler/Dialect/Flow/Transforms/FormDispatchRegions.h"
+#include "iree/compiler/Codegen/Dialect/Codegen/Utils/Utils.h"
 #include "iree/compiler/Dialect/Encoding/IR/EncodingOps.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowDialect.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
@@ -18,6 +19,7 @@
 #include "iree/compiler/DispatchCreation/FusionUtils.h"
 #include "iree/compiler/DispatchCreation/Passes.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
@@ -477,6 +479,111 @@ static bool canUseInOperandAsInitOperand(OpOperand *inOperand,
   return true;
 }
 
+/// Packed contraction epilogues preserve the physical result indexing. Other
+/// operands may broadcast, but the contraction result and output must use the
+/// same identity map. In particular, do not admit transposes or reductions.
+static bool isDataTiledEpilogueOperand(OpOperand &operand) {
+  auto generic = dyn_cast<linalg::GenericOp>(operand.getOwner());
+  if (!generic || generic.getNumDpsInits() != 1 ||
+      !linalg::isElementwise(generic) || generic.isDpsInit(&operand)) {
+    return false;
+  }
+  return generic.getMatchingIndexingMap(&operand).isIdentity() &&
+         generic.getMatchingIndexingMap(generic.getDpsInitOperand(0))
+             .isIdentity() &&
+         llvm::all_of(generic.getIndexingMapsArray(), [](AffineMap map) {
+           return map.isProjectedPermutation();
+         });
+}
+
+static bool isDataTiledRoot(Operation *op,
+                            FormDispatchRegionsPassOptions const &options) {
+  if (isa<linalg::Mmt4DOp, linalg::BatchMmt4DOp>(op)) {
+    return options.fuseMmt4d;
+  }
+  auto generic = dyn_cast<linalg::GenericOp>(op);
+  return options.fuseDataTiledConvolution && generic &&
+         IREE::Codegen::isDataTiledConvGeneric(generic);
+}
+
+static bool isUnitBatchCollapse(tensor::CollapseShapeOp collapse) {
+  // Batchless convolution materialization temporarily inserts N=1 in NCHWc.
+  // Do not generalize this to reshaping channel tiles or spatial dimensions.
+  return collapse.getSrcType().getRank() == 5 &&
+         collapse.getSrcType().getDimSize(0) == 1 &&
+         collapse.getReassociationIndices() ==
+             SmallVector<ReassociationIndices>{{0, 1}, {2}, {3}, {4}};
+}
+
+/// Find a packed root through layout-preserving pointwise operations.
+/// This only defers a potential terminal unpack's root selection. The normal
+/// use, dependency, and fusion-group checks still decide whether to fuse it.
+static Operation *
+findDataTiledProducer(Value value,
+                      FormDispatchRegionsPassOptions const &options) {
+  SmallVector<Value> worklist{value};
+  llvm::SmallPtrSet<Operation *, 8> visited;
+  Block *block = value.getParentBlock();
+  while (!worklist.empty()) {
+    Operation *producer = worklist.pop_back_val().getDefiningOp();
+    if (!producer || producer->getBlock() != block ||
+        !visited.insert(producer).second) {
+      continue;
+    }
+    if (isDataTiledRoot(producer, options)) {
+      return producer;
+    }
+    if (auto collapse = dyn_cast<tensor::CollapseShapeOp>(producer);
+        collapse && options.fuseDataTiledConvolution &&
+        isUnitBatchCollapse(collapse)) {
+      worklist.push_back(collapse.getSrc());
+      continue;
+    }
+    for (OpOperand &operand : producer->getOpOperands()) {
+      if (isDataTiledEpilogueOperand(operand)) {
+        worklist.push_back(operand.get());
+      }
+    }
+  }
+  return nullptr;
+}
+
+static bool isMmt4dResultUnpack(linalg::UnPackOp unpack) {
+  // CPU materialization leaves the batch dimension unpacked and appends two
+  // static inner M/N dimensions. Keep dynamic/scalable tiles on their old path.
+  if (!unpack.getInnerTiles().empty() || unpack.getInnerDimsPos().size() != 2) {
+    return false;
+  }
+  int64_t rank = unpack.getSourceType().getRank();
+  return (rank == 4 || rank == 5) &&
+         (rank != 5 ||
+          !llvm::is_contained(unpack.getInnerDimsPos(), int64_t{0}));
+}
+
+static bool isDataTiledResultUnpack(linalg::UnPackOp unpack, Operation *root) {
+  if (isa<linalg::Mmt4DOp, linalg::BatchMmt4DOp>(root)) {
+    return isMmt4dResultUnpack(unpack);
+  }
+  // The blocked convolution produces NCHWc. Only undo the physical output
+  // channel tile; arbitrary permutations retain the existing separate dispatch.
+  if (!unpack.getInnerTiles().empty() || unpack.getInnerDimsPos().size() != 1) {
+    return false;
+  }
+  ArrayRef<int64_t> permutation = unpack.getOuterDimsPerm();
+  int64_t channel = unpack.getInnerDimsPos()[0];
+  if (unpack.getSourceType().getRank() == 4) {
+    auto collapse = unpack.getSource().getDefiningOp<tensor::CollapseShapeOp>();
+    return collapse && isUnitBatchCollapse(collapse) && channel == 2 &&
+           permutation == ArrayRef<int64_t>({2, 0, 1});
+  }
+  if (unpack.getSourceType().getRank() != 5) {
+    return false;
+  }
+  return (channel == 3 && permutation == ArrayRef<int64_t>({0, 3, 1, 2})) ||
+         (channel == 1 && (permutation.empty() ||
+                           permutation == ArrayRef<int64_t>({0, 1, 2, 3})));
+}
+
 /// Returns true if this is a fusable use, while fusing a root with its
 /// consumer.
 static bool
@@ -491,6 +598,33 @@ isFusableWithConsumer(OpOperand &fusedOperand, const FusionTracker &tracker,
   cloneableOptions.aggressive = options.aggressiveFusion;
   if (IREE::Flow::isCloneableIntoDispatchOp(consumer, cloneableOptions)) {
     return false;
+  }
+
+  Operation *groupRoot = tracker.getFusionGroup(producer).getRoot();
+  if (isDataTiledRoot(groupRoot, options)) {
+    // The output unpack is the final operation in a packed contraction group.
+    if (isUnpackLikeOp(producer)) {
+      return false;
+    }
+    if (auto unpack = dyn_cast<linalg::UnPackOp>(consumer)) {
+      return isDataTiledResultUnpack(unpack, groupRoot) &&
+             !llvm::any_of(
+                 tracker.getFusionGroup(producer).getFusedOperations(),
+                 isPackLikeOp) &&
+             !tracker.getFusionGroup(producer).wouldExceedOperandLimit(
+                 consumer);
+    }
+    if (auto collapse = dyn_cast<tensor::CollapseShapeOp>(consumer);
+        collapse && isa<linalg::GenericOp>(groupRoot) &&
+        isUnitBatchCollapse(collapse) && collapse->hasOneUse()) {
+      auto unpack = dyn_cast<linalg::UnPackOp>(*collapse->getUsers().begin());
+      return unpack && isDataTiledResultUnpack(unpack, groupRoot) &&
+             !tracker.getFusionGroup(producer).wouldExceedOperandLimit(
+                 consumer);
+    }
+    if (!isDataTiledEpilogueOperand(fusedOperand)) {
+      return false;
+    }
   }
 
   // Fuse unset_encoding operations with `tensor.extract_slice` and elementwise
@@ -547,9 +681,9 @@ isFusableWithConsumer(OpOperand &fusedOperand, const FusionTracker &tracker,
     return insertSliceOp.getDest().getDefiningOp<linalg::FillOp>();
   }
 
-  // TODO(#16025): Enable mmt4d fusion. It is disabled because the backends
-  // can not set multi lowering_config properly. See the issue for more details.
-  if (isa<linalg::Mmt4DOp, linalg::BatchMmt4DOp>(producer)) {
+  // Other backends retain the existing mmt4d fusion restriction.
+  if (isa<linalg::Mmt4DOp, linalg::BatchMmt4DOp>(producer) &&
+      !options.fuseMmt4d) {
     return false;
   }
 
@@ -864,6 +998,16 @@ decideFusableLinalgOps(Region &region, DominanceInfo const &dominanceInfo,
       }
 
       // Start with a root operation and fuse its producers.
+      // Let a packed contraction claim its final unpack as a consumer. If the
+      // fusion is rejected, the second sweep still gives the unpack a dispatch.
+      if (options.fuseMmt4d || options.fuseDataTiledConvolution) {
+        if (auto unpack = dyn_cast<linalg::UnPackOp>(op)) {
+          Operation *root = findDataTiledProducer(unpack.getSource(), options);
+          if (root && isDataTiledResultUnpack(unpack, root)) {
+            continue;
+          }
+        }
+      }
       if (tracker.isFusedOp(&op) || !isRootLikeOp(&op)) {
         continue;
       }
@@ -902,7 +1046,8 @@ decideFusableLinalgOps(Region &region, DominanceInfo const &dominanceInfo,
       // to convert them to splats. Also avoid moving dequantization-like ops
       // into their own dispatch since it is better to clone these ops and avoid
       // materializing large tensors between dispatches.
-      if (!isa<linalg::LinalgOp, tensor::PadOp, linalg::PackOp>(op) ||
+      if (!isa<linalg::LinalgOp, tensor::PadOp, linalg::PackOp,
+               linalg::UnPackOp>(op) ||
           IREE::Flow::isCloneableIntoDispatchOp(&op, cloneableOptions)) {
         continue;
       }
@@ -1071,9 +1216,12 @@ void FormDispatchRegionsPass::runOnOperation() {
   mlir::FunctionOpInterface funcOp = getOperation();
   DominanceInfo &dominanceInfo = getAnalysis<DominanceInfo>();
   TensorDimTrackingRewriter rewriter(funcOp);
-  FormDispatchRegionsPassOptions options{
-      aggressiveFusion, fuseMultiUseProducers, fusePadWithConsumers,
-      fusePadWithProducers};
+  FormDispatchRegionsPassOptions options{aggressiveFusion,
+                                         fuseMultiUseProducers,
+                                         fusePadWithConsumers,
+                                         fusePadWithProducers,
+                                         fuseMmt4d,
+                                         fuseDataTiledConvolution};
   if (failed(createFusionGroups(rewriter, funcOp, dominanceInfo, options))) {
     funcOp->emitOpError("failed to create fusion groups");
     return signalPassFailure();
