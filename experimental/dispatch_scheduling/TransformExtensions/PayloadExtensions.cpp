@@ -11,7 +11,11 @@
 #include "experimental/dispatch_scheduling/IR/PayloadDialect.h"
 #include "experimental/dispatch_scheduling/IR/PayloadOps.h"
 #include "experimental/dispatch_scheduling/Transforms/BufferizationInterfaces.h"
+#include "iree/compiler/Codegen/LLVMCPU/KernelDispatch.h"
+#include "iree/compiler/Codegen/Utils/CPUUtils.h"
+#include "iree/compiler/Codegen/Utils/Utils.h"
 #include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
+#include "iree/compiler/Dialect/HAL/IR/HALTypes.h"
 #include "iree/compiler/Dialect/TensorExt/IR/TensorExtOps.h"
 #include "llvm/ADT/SetVector.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -178,6 +182,42 @@ DiagnosedSilenceableFailure BufferizePayloadBoundariesOp::applyToOne(
     }
   }
   results.push_back(target);
+  return DiagnosedSilenceableFailure::success();
+}
+
+DiagnosedSilenceableFailure GetMmt4dWorkgroupTilesOp::applyToOne(
+    transform::TransformRewriter& rewriter, Operation* target,
+    transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  auto root = dyn_cast<linalg::Mmt4DOp>(target);
+  auto executableTarget = IREE::HAL::ExecutableTargetAttr::lookup(target);
+  if (!root || !root.hasPureTensorSemantics() || getLoweringConfig(root) ||
+      !isLLVMCPUBackend(executableTarget)) {
+    return emitSilenceableError()
+           << "expected an unconfigured mmt4d with a resolved LLVM CPU target";
+  }
+  DictionaryAttr targetConfig = executableTarget.getConfiguration();
+  if (!targetConfig || !targetConfig.getAs<StringAttr>("data_layout") ||
+      (!isAArch64(targetConfig) && !isX86(targetConfig))) {
+    return emitSilenceableError()
+           << "expected a resolved AArch64 or x86 CPU target";
+  }
+  // The classic heuristic assumes nonempty outer dimensions and fixed inner
+  // tiles (except for its separately configured scalable-vector route). Keep
+  // unsupported global roots out of that path before it can assert or divide
+  // by zero. Dynamic outer dimensions use the classic cost-model estimates.
+  for (Value operand : root->getOperands()) {
+    auto type = cast<RankedTensorType>(operand.getType());
+    auto shape = type.getShape();
+    if (shape[0] == 0 || shape[1] == 0 || shape[2] <= 0 || shape[3] <= 0) {
+      return emitSilenceableError() << "expected nonempty outer dimensions and "
+                                       "static positive inner tiles";
+    }
+  }
+  auto config = getMmt4dLoweringConfig(root, targetConfig);
+  auto tiles = config.getWorkgroupTileSizes();
+  results.push_back(rewriter.getI64IntegerAttr(tiles[0]));
+  results.push_back(rewriter.getI64IntegerAttr(tiles[1]));
   return DiagnosedSilenceableFailure::success();
 }
 

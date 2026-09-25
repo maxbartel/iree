@@ -24,6 +24,8 @@ iree_lit_test_suite(
             "bufferize_payload_boundaries_invalid.mlir",
             "bufferize_payload_dispatch_aliases.mlir",
             "bufferize_payload_dispatch_strides.mlir",
+            "get_mmt4d_workgroup_tiles.mlir",
+            "get_mmt4d_workgroup_tiles_invalid.mlir",
             "lower_payload_region.mlir",
             "outline_payload_region.mlir",
             "replace_linalg_init_with_empty.mlir",

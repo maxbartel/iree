@@ -1816,8 +1816,10 @@ static SmallVector<std::pair<int64_t, int64_t>> getDivisors(int64_t n) {
   return divisors;
 }
 
-static IREE::Codegen::LoweringConfigAttrInterface
+IREE::Codegen::LoweringConfigAttrInterface
 getMmt4dLoweringConfig(linalg::LinalgOp op, DictionaryAttr targetConfig) {
+  assert((isa<linalg::Mmt4DOp, linalg::BatchMmt4DOp>(op)) &&
+         "expected a packed CPU contraction");
   Value lhs = op.getDpsInputs()[0];
   Value rhs = op.getDpsInputs()[1];
   Value acc = op.getDpsInits()[0];

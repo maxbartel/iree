@@ -281,4 +281,29 @@ def BufferizePayloadBoundariesOp : Op<Transform_Dialect,
   }];
 }
 
+def GetMmt4dWorkgroupTilesOp : Op<Transform_Dialect,
+    "iree.cpu.get_mmt4d_workgroup_tiles",
+    [ParamProducerTransformOpTrait, TransformEachOpTrait,
+     TransformOpInterface, MemoryEffectsOpInterface]> {
+  let summary = "Query the classic CPU mmt4d distribution heuristic";
+  let description = [{
+    Return the M and N outer tile sizes chosen by the existing CPU heuristic
+    for each unconfigured linalg.mmt4d. Query before tiling, while the root has
+    its original dimensions. The enclosing scope must have a resolved LLVM CPU
+    target. This transform does not modify the root or attach a configuration.
+    Empty handles yield empty parameters; multi-target handles retain order.
+  }];
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformParamTypeInterface:$m, TransformParamTypeInterface:$n);
+  let assemblyFormat = "$target prop-dict attr-dict `:` functional-type(operands, results)";
+  let cppNamespace = "mlir::iree_compiler::Experimental::transform_dialect";
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif

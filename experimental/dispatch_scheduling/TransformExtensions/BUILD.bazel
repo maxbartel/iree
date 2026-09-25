@@ -49,7 +49,10 @@ iree_compiler_cc_library(
     ],
     deps = [
         ":PayloadExtensionsOpGen",
+        "//compiler/src/iree/compiler/Codegen/LLVMCPU",
+        "//compiler/src/iree/compiler/Codegen/Utils",
         "//compiler/src/iree/compiler/Dialect/Flow/IR",
+        "//compiler/src/iree/compiler/Dialect/HAL/IR",
         "//compiler/src/iree/compiler/Dialect/TensorExt/IR",
         "//experimental/dispatch_scheduling/IR",
         "//experimental/dispatch_scheduling/Transforms",

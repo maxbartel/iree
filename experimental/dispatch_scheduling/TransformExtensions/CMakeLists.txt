@@ -48,7 +48,10 @@ iree_cc_library(
     MLIRTransformDialectInterfaces
     MLIRTransformUtils
     MLIRValueBoundsOpInterface
+    iree::compiler::Codegen::LLVMCPU
+    iree::compiler::Codegen::Utils
     iree::compiler::Dialect::Flow::IR
+    iree::compiler::Dialect::HAL::IR
     iree::compiler::Dialect::TensorExt::IR
     iree::experimental::dispatch_scheduling::IR
     iree::experimental::dispatch_scheduling::Transforms
