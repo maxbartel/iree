@@ -22,6 +22,8 @@ iree_lit_test_suite(
     "bufferize_payload_dispatch_aliases.mlir"
     "bufferize_payload_dispatch_strides.mlir"
     "convert_payload_calls_invalid.mlir"
+    "cpu_mmt4d_broadcast_init.mlir"
+    "cpu_mmt4d_schedule.mlir"
     "finalize_payloads.mlir"
     "finalize_payloads_invalid.mlir"
     "get_mmt4d_workgroup_tiles.mlir"
@@ -52,7 +54,9 @@ iree_lit_test_suite(
     FileCheck
     iree-opt
   DATA
+    Inputs::failing_schedule.mlir
     Inputs::schedule_choices.mlir
+    Inputs::unlowered_schedule.mlir
     iree::compiler::lit.cfg.py
   LABELS
     "manual"

@@ -44,9 +44,11 @@ iree_cc_library(
     MLIRFuncDialect
     MLIRFuncToLLVM
     MLIRIR
+    MLIRIndexToLLVM
     MLIRLLVMCommonConversion
     MLIRLLVMDialect
     MLIRLLVMIRTransforms
+    MLIRMathToLLVM
     MLIRMemRefDialect
     MLIRMemRefToLLVM
     MLIRPass
@@ -55,6 +57,8 @@ iree_cc_library(
     MLIRSupport
     MLIRTensorDialect
     MLIRTransformUtils
+    MLIRUBToLLVM
+    MLIRVectorToLLVM
     MLIRViewLikeInterface
     iree::compiler::Codegen::Common
     iree::compiler::Codegen::Dialect::Codegen::IR::IREECodegenDialect
@@ -66,5 +70,8 @@ iree_cc_library(
     iree::experimental::dispatch_scheduling::Transforms
   PUBLIC
 )
+
+target_link_libraries(iree_experimental_dispatch_scheduling_LLVMCPU_LLVMCPU
+  INTERFACE MLIRVectorToLLVMPass)
 
 ### BAZEL_TO_CMAKE_PRESERVES_ALL_CONTENT_BELOW_THIS_LINE ###

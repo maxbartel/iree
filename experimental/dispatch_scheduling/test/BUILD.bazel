@@ -51,13 +51,17 @@ iree_lit_test_suite(
             "payload_region.mlir",
             "payload_region_invalid.mlir",
             "recorded_schedules.mlir",
+            "cpu_mmt4d_schedule.mlir",
+            "cpu_mmt4d_broadcast_init.mlir",
         ],
         include = ["*.mlir"],
     ),
     cfg = "lit.cfg.py",
     data = [
         "//compiler:lit.cfg.py",
+        "Inputs/failing_schedule.mlir",
         "Inputs/schedule_choices.mlir",
+        "Inputs/unlowered_schedule.mlir",
     ],
     tags = ["manual"],
     tools = [

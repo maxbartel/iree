@@ -46,6 +46,7 @@ iree_cc_library(
     iree::compiler::Dialect::HAL::IR
     iree::experimental::dispatch_scheduling::IR
     iree::experimental::dispatch_scheduling::LLVMCPU
+    iree::experimental::dispatch_scheduling::Schedules::cpu_schedules
   PUBLIC
 )
 

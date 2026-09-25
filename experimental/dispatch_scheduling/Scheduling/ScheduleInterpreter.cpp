@@ -6,6 +6,7 @@
 
 #include "experimental/dispatch_scheduling/IR/PayloadOps.h"
 #include "experimental/dispatch_scheduling/LLVMCPU/Passes.h"
+#include "experimental/dispatch_scheduling/Schedules/cpu_schedules.h"
 #include "experimental/dispatch_scheduling/Scheduling/Passes.h"
 #include "iree/compiler/Codegen/Common/Passes.h"
 #include "iree/compiler/Codegen/Dialect/Codegen/IR/IREECodegenDialect.h"
@@ -317,8 +318,8 @@ class SelectDispatchSchedulesPass final
         }
         librarySource = buffer->getBuffer().str();
       } else {
-        return emitError(UnknownLoc::get(context))
-               << "expected a Transform library file or source";
+        auto* data = iree_dispatch_cpu_schedules_create();
+        librarySource = StringRef(data->data, data->size).str();
       }
     }
     sourceDigest = digestSource(librarySource);

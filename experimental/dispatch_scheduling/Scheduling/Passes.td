@@ -12,7 +12,7 @@ def SelectDispatchSchedulesPass : Pass<"iree-dispatch-scheduling-select", "mlir:
   let summary = "Schedule selected global computations before dispatch creation";
   let options = [
     Option<"libraryFileName", "library-file", "std::string", "\"\"",
-           "Transform library containing selection and dispatch entry points">,
+           "Override the embedded CPU Transform library">,
     Option<"librarySource", "library-source", "std::string", "\"\"",
            "Immutable transform library source captured in reproducers">,
     Option<"stopAfterSelection", "stop-after-selection", "bool", "false",

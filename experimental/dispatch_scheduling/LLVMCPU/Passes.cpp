@@ -9,7 +9,11 @@
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
+#include "mlir/Conversion/IndexToLLVM/IndexToLLVM.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.h"
 
 namespace mlir::iree_compiler::Experimental {
 #define GEN_PASS_REGISTRATION
@@ -21,6 +25,10 @@ void registerPayloadLLVMCPUPasses() {
   registerPass([] { return createConvertControlFlowToLLVMPass(); });
   registerPass([] { return createConvertFuncToLLVMPass(); });
   registerPass([] { return createFinalizeMemRefToLLVMConversionPass(); });
+  registerPass([] { return createConvertIndexToLLVMPass(); });
+  registerPass([] { return createConvertMathToLLVMPass(); });
+  registerPass([] { return createUBToLLVMConversionPass(); });
+  registerPass([] { return createConvertVectorToLLVMPass(); });
   registerLLVMCPUFinalizePayloadsPass();
   registerLLVMCPUPreparePayloadBoundariesPass();
   registerLLVMCPUPreparePayloadCodegenPass();

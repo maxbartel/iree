@@ -4,7 +4,7 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-load("//build_tools/bazel:build_defs.oss.bzl", "iree_compiler_cc_library", "iree_gentbl_cc_library")
+load("//build_tools/bazel:build_defs.oss.bzl", "iree_cmake_extra_content", "iree_compiler_cc_library", "iree_gentbl_cc_library")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -54,10 +54,12 @@ iree_compiler_cc_library(
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:FuncToLLVM",
         "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:IndexToLLVM",
         "@llvm-project//mlir:InliningUtils",
         "@llvm-project//mlir:LLVMCommonConversion",
         "@llvm-project//mlir:LLVMDialect",
         "@llvm-project//mlir:LLVMIRTransforms",
+        "@llvm-project//mlir:MathToLLVM",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//mlir:MemRefToLLVM",
         "@llvm-project//mlir:Pass",
@@ -66,6 +68,17 @@ iree_compiler_cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TransformUtils",
+        "@llvm-project//mlir:UBToLLVM",
+        "@llvm-project//mlir:VectorToLLVM",
         "@llvm-project//mlir:ViewLikeInterface",
     ],
+)
+
+# Bazel bundles the conversion pass with its patterns; CMake splits them.
+iree_cmake_extra_content(
+    content = """
+target_link_libraries(iree_experimental_dispatch_scheduling_LLVMCPU_LLVMCPU
+  INTERFACE MLIRVectorToLLVMPass)
+""",
+    inline = True,
 )
