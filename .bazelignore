@@ -4,10 +4,9 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-# Ignore 'experimental' folders. These builds are not regularly maintained.
-# If you wish to build/run a target under experimental/, you must remove this
-# line from this file.
-experimental
+# Keep unmaintained experiments out of recursive builds. Compiler plugins must
+# remain visible so they can be selected explicitly.
+experimental/hal_executable_library_call_hooks
 
 # Ignore third_party directories which contain BUILD files so that recursive
 # from root works.
