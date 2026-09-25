@@ -27,6 +27,7 @@ iree_lit_test_suite(
     "get_mmt4d_workgroup_tiles.mlir"
     "get_mmt4d_workgroup_tiles_invalid.mlir"
     "lower_payload_region.mlir"
+    "match_mmt4d_fusion_roots.mlir"
     "outline_payload_region.mlir"
     "payload_bufferization.mlir"
     "payload_bufferization_views.mlir"

@@ -32,6 +32,7 @@ iree_lit_test_suite(
             "finalize_payloads.mlir",
             "finalize_payloads_invalid.mlir",
             "lower_payload_region.mlir",
+            "match_mmt4d_fusion_roots.mlir",
             "outline_payload_region.mlir",
             "replace_linalg_init_with_empty.mlir",
             "replace_linalg_init_with_empty_invalid.mlir",

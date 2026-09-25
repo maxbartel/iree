@@ -8,6 +8,7 @@
 #define IREE_EXPERIMENTAL_DISPATCH_SCHEDULING_TRANSFORM_OPS_H_
 
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
+#include "mlir/Dialect/Transform/Interfaces/MatchInterfaces.h"
 #include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.h"
 
 #define GET_OP_CLASSES

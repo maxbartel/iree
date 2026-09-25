@@ -9,6 +9,7 @@
 
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
 include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.td"
+include "mlir/Dialect/Transform/Interfaces/MatchInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpBase.td"
 
@@ -279,6 +280,40 @@ def BufferizePayloadBoundariesOp : Op<Transform_Dialect,
         ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
+}
+
+def MatchMmt4dFusionRootsOp : Op<Transform_Dialect,
+    "iree.cpu.match_mmt4d_fusion_roots",
+    [MatchOpInterface, SingleOpMatcher, MemoryEffectsOpInterface]> {
+  let summary = "Select disjoint mmt4d and pointwise groups in a function";
+  let description = [{
+    Read-only preflight for the experimental CPU mmt4d schedule. Return the mmt4d
+    roots whose initializer and single pointwise consumer form a supported group.
+    The contraction is input `contraction_input` of the epilogue. The matcher
+    anchors on the enclosing function, so actions may rewrite all three sibling
+    operations without escaping their mutation scope. Only direct children of
+    function blocks are considered; initializers and existing dispatch bodies
+    are excluded. Multi-use contraction results are excluded, giving each
+    contraction and epilogue one owner. A shared initializer may be cloned by
+    producer fusion; this does not duplicate weights. Unsupported operations
+    are left untouched. An empty result produces a silenceable match failure.
+
+    The schedule supports f32 tensors with fixed positive inner tiles and
+    static or dynamic outer dimensions on a resolved CPU target with the mmt4d
+    microkernel enabled. Epilogues
+    may contain scalar constants, f32 add/subtract/multiply/negate, maximum and
+    minimum. Initializers may be zero fills or single-input f32 broadcasts with
+    an identity output map. Broadcast values initialize the accumulator before
+    the reduction; they are not moved to a trailing addition.
+    Other bodies retain classic lowering. Input and destination
+    dimensions must be provably equal before retie and fusion.
+  }];
+  let arguments = (ins TransformHandleTypeInterface:$operand_handle,
+                       I64Attr:$contraction_input);
+  let results = (outs TransformHandleTypeInterface:$roots);
+  let assemblyFormat = "$operand_handle prop-dict attr-dict `:` functional-type(operands, results)";
+  let extraClassDeclaration = SingleOpMatcher.extraDeclaration;
+  let cppNamespace = "mlir::iree_compiler::Experimental::transform_dialect";
 }
 
 def GetMmt4dWorkgroupTilesOp : Op<Transform_Dialect,

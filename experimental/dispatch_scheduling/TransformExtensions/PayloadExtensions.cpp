@@ -29,6 +29,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/IRMapping.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
@@ -242,6 +243,114 @@ static bool haveSameTensorShape(Value lhs, Value rhs) {
     }
   }
   return true;
+}
+
+// Preserve a broadcast accumulator before the reduction. Moving it to a
+// trailing addition would change floating-point evaluation order.
+static bool isSupportedMmt4dInitializer(linalg::LinalgOp init) {
+  if (!init || !init.hasPureTensorSemantics() || !isMemoryEffectFree(init) ||
+      init.getNumDpsInits() != 1 ||
+      init.getNumParallelLoops() != init.getNumLoops()) {
+    return false;
+  }
+  if (auto fill = dyn_cast<linalg::FillOp>(init.getOperation())) {
+    return matchPattern(fill.getInputs()[0], m_AnyZeroFloat());
+  }
+  auto broadcast = dyn_cast<linalg::GenericOp>(init.getOperation());
+  if (!broadcast || broadcast.getNumDpsInputs() != 1 ||
+      !llvm::hasSingleElement(broadcast.getBody()->getOperations())) {
+    return false;
+  }
+  OpOperand* input = broadcast.getDpsInputOperand(0);
+  OpOperand* output = broadcast.getDpsInitOperand(0);
+  auto inputType = dyn_cast<RankedTensorType>(input->get().getType());
+  auto yield = cast<linalg::YieldOp>(broadcast.getBody()->getTerminator());
+  return inputType && inputType.getElementType().isF32() &&
+         broadcast.getMatchingIndexingMap(input).isProjectedPermutation() &&
+         broadcast.getMatchingIndexingMap(output).isIdentity() &&
+         yield.getValues()[0] == broadcast.getBody()->getArgument(0);
+}
+
+DiagnosedSilenceableFailure MatchMmt4dFusionRootsOp::matchOperation(
+    Operation* current, transform::TransformResults& results,
+    transform::TransformState& state) {
+  auto function = dyn_cast<FunctionOpInterface>(current);
+  auto target = IREE::HAL::ExecutableTargetAttr::lookup(current);
+  if (!function || function.isExternal() ||
+      !isa<ModuleOp>(current->getParentOp()) || !isLLVMCPUBackend(target)) {
+    return emitSilenceableError() << "expected an unscheduled CPU function";
+  }
+  for (Operation* parent = current->getParentOp(); parent;
+       parent = parent->getParentOp()) {
+    if (!isa<ModuleOp>(parent) || parent->hasAttr("iree_payload.compute")) {
+      return emitSilenceableError() << "expected global inference computation";
+    }
+  }
+  DictionaryAttr config = target.getConfiguration();
+  if (!config || !config.getAs<StringAttr>("data_layout") ||
+      (!isAArch64(config) && !isX86(config)) || !hasUkernel(config, "mmt4d")) {
+    return emitSilenceableError() << "expected resolved CPU mmt4d support";
+  }
+  SmallVector<Operation*> roots;
+  for (Block& block : function.getFunctionBody()) {
+    for (auto root : block.getOps<linalg::Mmt4DOp>()) {
+      if (!root.hasPureTensorSemantics() || getLoweringConfig(root) ||
+          getCompilationInfo(root) || !root->hasOneUse()) {
+        continue;
+      }
+      if (llvm::any_of(root->getOperandTypes(), [](Type type) {
+            auto tensor = dyn_cast<RankedTensorType>(type);
+            return !tensor || tensor.getEncoding() ||
+                   !tensor.getElementType().isF32() ||
+                   tensor.getDimSize(0) == 0 || tensor.getDimSize(1) == 0 ||
+                   tensor.getDimSize(2) <= 0 || tensor.getDimSize(3) <= 0;
+          })) {
+        continue;
+      }
+      auto init =
+          root.getDpsInitOperand(0)->get().getDefiningOp<linalg::LinalgOp>();
+      auto epilogue = dyn_cast<linalg::GenericOp>(*root->getUsers().begin());
+      if (!isSupportedMmt4dInitializer(init) || init->getBlock() != &block ||
+          !epilogue || epilogue->getBlock() != &block ||
+          !epilogue.hasPureTensorSemantics() || !isMemoryEffectFree(epilogue) ||
+          epilogue.getNumDpsInits() != 1 ||
+          epilogue.getNumParallelLoops() != epilogue.getNumLoops() ||
+          getContractionInput() < 0 ||
+          getContractionInput() >= epilogue.getNumDpsInputs()) {
+        continue;
+      }
+      OpOperand* input = epilogue.getDpsInputOperand(getContractionInput());
+      OpOperand* output = epilogue.getDpsInitOperand(0);
+      AffineMap map = epilogue.getMatchingIndexingMap(input);
+      if (input->get() != root.getResult(0) ||
+          output->get().getType() != input->get().getType() ||
+          epilogue.payloadUsesValueFromOperand(output) || !map.isIdentity() ||
+          map != epilogue.getMatchingIndexingMap(output) ||
+          getLoweringConfig(epilogue) || getCompilationInfo(epilogue)) {
+        continue;
+      }
+      if (!haveSameTensorShape(input->get(), output->get())) {
+        continue;
+      }
+      // Selection must establish support before any mutation. In particular,
+      // effect-free math operations may need approximation or library-call
+      // lowering that this script does not provide. Leave those on the classic
+      // path instead of discovering that after forming the workgroup.
+      if (llvm::any_of(epilogue.getBody()->getOperations(), [](Operation& op) {
+            return !isa<arith::ConstantOp, arith::AddFOp, arith::SubFOp,
+                        arith::MulFOp, arith::NegFOp, arith::MaximumFOp,
+                        arith::MinimumFOp, linalg::YieldOp>(op);
+          })) {
+        continue;
+      }
+      roots.push_back(root);
+    }
+  }
+  if (roots.empty()) {
+    return emitSilenceableError() << "no supported mmt4d fusion groups";
+  }
+  results.set(cast<OpResult>(getRoots()), roots);
+  return DiagnosedSilenceableFailure::success();
 }
 
 DiagnosedSilenceableFailure ReplaceLinalgInitWithEmptyOp::applyToOne(
